@@ -1,127 +1,92 @@
 package com.example.aromabox.data.repository
 
-import com.example.aromabox.data.firebase.AuthManager
-import com.example.aromabox.data.firebase.FirebaseManager
-import com.example.aromabox.data.model.Badge
-import com.example.aromabox.data.model.Order
 import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.data.model.User
-import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.tasks.await
 
+class UserRepository {
 
-object UserRepository {
+    private val database = FirebaseDatabase.getInstance()
+    private val usersRef = database.getReference("users")
 
-    /**
-     * Controlla se l'utente esiste nel database.
-     * Se non esiste, crea un nuovo profilo base.
-     */
-    suspend fun getOrCreateUser(firebaseUser: FirebaseUser): User? {
-        val existingUser = FirebaseManager.getUserById(firebaseUser.uid)
-
-        return if (existingUser != null) {
-            existingUser
-        } else {
-            // Splitta il displayName: primo pezzo = nome, tutto il resto = cognome
-            val displayName = firebaseUser.displayName ?: ""
-            val nameParts = displayName.split(" ")
-            val nome = nameParts.firstOrNull() ?: ""
-            val cognome = if (nameParts.size > 1) {
-                nameParts.drop(1).joinToString(" ")  // Prende TUTTO dopo il primo spazio
-            } else {
-                ""
+    fun getUserById(userId: String): Flow<User?> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val user = snapshot.getValue(User::class.java)
+                trySend(user)
             }
 
-            val newUser = User(
-                userId = firebaseUser.uid,
-                email = firebaseUser.email ?: "",
-                nome = nome,
-                cognome = cognome,
-                nickname = "",
-                photoUrl = firebaseUser.photoUrl?.toString() ?: "",
-                connesso = false,
-                macchinettaConnessaId = "",
-                borsellino = 0.0,
-                profiloOlfattivo = null,
-                preferitiIds = emptyList(),
-                storico = emptyList(),
-                badge = emptyList(),
-                dataRegistrazione = System.currentTimeMillis()
-            )
+            override fun onCancelled(error: DatabaseError) {
+                close(error.toException())
+            }
+        }
 
-            val success = FirebaseManager.createUser(newUser)
-            if (success) newUser else null
+        usersRef.child(userId).addValueEventListener(listener)
+        awaitClose { usersRef.child(userId).removeEventListener(listener) }
+    }
+
+    suspend fun getUserByIdOnce(userId: String): User? {
+        return try {
+            val snapshot = usersRef.child(userId).get().await()
+            snapshot.getValue(User::class.java)
+        } catch (e: Exception) {
+            null
         }
     }
 
-    suspend fun getCurrentUser(): User? {
-        val firebaseUser = AuthManager.getCurrentUser() ?: return null
-        return FirebaseManager.getUserById(firebaseUser.uid)
-    }
-
-    suspend fun updateUser(user: User): Boolean {
-        return FirebaseManager.updateUser(user)
-    }
-
-    suspend fun updateNickname(userId: String, nickname: String): Boolean {
-        return FirebaseManager.updateUserField(userId, "nickname", nickname)
-    }
-
-    suspend fun updateProfiloOlfattivo(userId: String, profilo: ProfiloOlfattivo): Boolean {
-        return FirebaseManager.updateUserField(userId, "profiloOlfattivo", profilo)
-    }
-
-    suspend fun addToFavorites(userId: String, perfumeId: String): Boolean {
-        val user = FirebaseManager.getUserById(userId) ?: return false
-        val updatedFavorites = user.preferitiIds.toMutableList().apply {
-            if (!contains(perfumeId)) add(perfumeId)
+    suspend fun createUser(user: User) {
+        try {
+            usersRef.child(user.uid).setValue(user).await()
+        } catch (e: Exception) {
+            throw e
         }
-        return FirebaseManager.updateUserField(userId, "preferitiIds", updatedFavorites)
     }
 
-    suspend fun removeFromFavorites(userId: String, perfumeId: String): Boolean {
-        val user = FirebaseManager.getUserById(userId) ?: return false
-        val updatedFavorites = user.preferitiIds.toMutableList().apply {
-            remove(perfumeId)
+    // ✅ NUOVA FUNZIONE: Aggiorna un singolo campo
+    suspend fun updateUserField(userId: String, field: String, value: Any) {
+        try {
+            usersRef.child(userId).child(field).setValue(value).await()
+        } catch (e: Exception) {
+            throw e
         }
-        return FirebaseManager.updateUserField(userId, "preferitiIds", updatedFavorites)
     }
 
-    suspend fun addOrderToHistory(userId: String, order: Order): Boolean {
-        val user = FirebaseManager.getUserById(userId) ?: return false
-        val updatedHistory = user.storico.toMutableList().apply {
-            add(order)
+    suspend fun updateFavorites(userId: String, favorites: List<String>) {
+        try {
+            usersRef.child(userId).child("preferiti").setValue(favorites).await()
+        } catch (e: Exception) {
+            throw e
         }
-        return FirebaseManager.updateUserField(userId, "storico", updatedHistory)
     }
 
-    suspend fun addBadge(userId: String, badge: Badge): Boolean {
-        val user = FirebaseManager.getUserById(userId) ?: return false
-        val updatedBadges = user.badge.toMutableList().apply {
-            if (none { it.id == badge.id }) add(badge)
+    suspend fun updateProfiloOlfattivo(userId: String, profilo: ProfiloOlfattivo) {
+        try {
+            usersRef.child(userId).child("profiloOlfattivo").setValue(profilo).await()
+        } catch (e: Exception) {
+            throw e
         }
-        return FirebaseManager.updateUserField(userId, "badge", updatedBadges)
     }
 
-    suspend fun updateBorsellino(userId: String, amount: Double): Boolean {
-        return FirebaseManager.updateUserField(userId, "borsellino", amount)
+    suspend fun updateWallet(userId: String, newAmount: Double) {
+        try {
+            usersRef.child(userId).child("wallet").setValue(newAmount).await()
+        } catch (e: Exception) {
+            throw e
+        }
     }
 
-    suspend fun updateConnessioneMacchinetta(userId: String, connected: Boolean, machineId: String = ""): Boolean {
-        val updates = mapOf(
-            "connesso" to connected,
-            "macchinettaConnessaId" to machineId
-        )
-
-        val user = FirebaseManager.getUserById(userId) ?: return false
-        val updatedUser = user.copy(
-            connesso = connected,
-            macchinettaConnessaId = machineId
-        )
-        return FirebaseManager.updateUser(updatedUser)
-    }
-
-    fun observeUser(userId: String): Flow<User?> {
-        return FirebaseManager.observeUser(userId)
+    suspend fun updateConnectionStatus(userId: String, isConnected: Boolean) {
+        try {
+            usersRef.child(userId).child("isConnected").setValue(isConnected).await()
+        } catch (e: Exception) {
+            throw e
+        }
     }
 }

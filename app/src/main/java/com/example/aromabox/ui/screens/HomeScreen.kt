@@ -1,6 +1,6 @@
 package com.example.aromabox.ui.screens
-import com.example.aromabox.ui.components.CommonTopBar
 
+import com.example.aromabox.ui.components.CommonTopBar
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -25,36 +25,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
+import androidx.navigation.NavController
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.theme.*
-import com.example.aromabox.viewmodel.UserViewModel
-import com.example.aromabox.viewmodel.UserState
-import androidx.compose.ui.unit.offset
+import com.example.aromabox.ui.viewmodels.UserViewModel  // ✅ Import corretto
 
 private val SaldoCardBg = Color(0xFF737083)
 private val SaldoTextSecondary = Color(0xFFFFFFFF).copy(alpha = 0.72f)
 private val QuizCardBg = Color(0xFFD5CFF6)
 private val PageBackground = Color(0xFFF2F2F2)
-private val HeaderBg = Color(0xFFC4B9FF).copy(alpha = 0.80f)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    navController: NavHostController,
+    navController: NavController,  // ✅ NavController invece di NavHostController
     userViewModel: UserViewModel = viewModel()
 ) {
-    // ✅ Osserva lo state invece di getCurrentUserData()
-    val userState by userViewModel.userState.collectAsState()
-
-    val user = when (val state = userState) {
-        is UserState.Success -> state.user
-        else -> null
-    }
+    // ✅ Osserva il nuovo StateFlow
+    val currentUser by userViewModel.currentUser.collectAsState()
 
     // ✅ Forza refresh ogni volta che si torna alla home
-    val navBackStackEntry = navController.currentBackStackEntry
-    LaunchedEffect(navBackStackEntry) {
+    LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
     }
 
@@ -82,12 +73,12 @@ fun HomeScreen(
         ) {
             // Card Saldo
             SaldoCard(
-                saldo = user?.borsellino ?: 0.0,
+                saldo = currentUser?.wallet ?: 0.0,  // ✅ wallet invece di borsellino
                 onRicaricaClick = { /* TODO: Ricarica */ }
             )
 
             // ✅ Controlla se il quiz è completo
-            val hasCompletedQuiz = user?.profiloOlfattivo?.isCompleto() == true
+            val hasCompletedQuiz = currentUser?.profiloOlfattivo != null
 
             if (!hasCompletedQuiz) {
                 QuizCard(
@@ -128,7 +119,7 @@ fun SaldoCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = String.format(Locale.ITALIAN, "%.2f €", saldo),  // ✅ Locale esplicito
+                    text = String.format(Locale.ITALIAN, "%.2f €", saldo),
                     fontSize = 33.sp,
                     fontWeight = FontWeight.Black,
                     color = Color.White
@@ -153,6 +144,7 @@ fun SaldoCard(
         }
     }
 }
+
 @Composable
 fun QuizCard(onClick: () -> Unit) {
     Card(
@@ -234,7 +226,7 @@ fun QuizCard(onClick: () -> Unit) {
 @Composable
 fun BottomNavigationBar(
     selectedScreen: Screen,
-    navController: NavHostController
+    navController: NavController  // ✅ NavController invece di NavHostController
 ) {
     Box {
         NavigationBar(
@@ -251,7 +243,7 @@ fun BottomNavigationBar(
                     )
                 },
                 label = { Text("Distributori", fontSize = 12.sp) },
-                selected = selectedScreen == Screen.Distributori,
+                selected = selectedScreen == Screen.Distributori,  // ✅ Distributori non Distributors
                 onClick = {
                     if (selectedScreen != Screen.Distributori) {
                         navController.navigate(Screen.Distributori.route) {

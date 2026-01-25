@@ -10,15 +10,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController  // ✅ NavController
 import androidx.navigation.NavHostController
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.theme.Primary
 import com.example.aromabox.ui.theme.Surface
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StoricoScreen(navController: NavHostController) {
+fun StoricoScreen(navController: NavController) {  // ✅ NavController
     Scaffold(
         topBar = {
             TopAppBar(
@@ -28,8 +28,8 @@ fun StoricoScreen(navController: NavHostController) {
         },
         bottomBar = {
             BottomNavigationBar(
-                selectedScreen = Screen.Storico,
-                navController = navController
+                selectedScreen = Screen.Storico,  // ✅ Nome corretto
+                navController = navController as NavHostController
             )
         }
     ) { paddingValues ->

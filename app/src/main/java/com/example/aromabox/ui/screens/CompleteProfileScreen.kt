@@ -15,47 +15,45 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.theme.*
-import com.example.aromabox.viewmodel.UserState
-import com.example.aromabox.viewmodel.UserViewModel
+import com.example.aromabox.ui.viewmodels.UserViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompleteProfileScreen(
-    onProfileCompleted: () -> Unit,
+    navController: NavController,
     userViewModel: UserViewModel = viewModel()
 ) {
     val context = LocalContext.current
+
+    // ✅ Stati locali per i campi
     var nome by remember { mutableStateOf("") }
     var cognome by remember { mutableStateOf("") }
-    var nickname by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    val userState by userViewModel.userState.collectAsState()
 
-    // Pre-compila con i dati di Google se disponibili
-    LaunchedEffect(Unit) {
-        userViewModel.loadCurrentUser()
+    // ✅ Osserva l'utente corrente
+    val currentUser by userViewModel.currentUser.collectAsState()
+    val errorMessage by userViewModel.errorMessage.collectAsState()
+
+    // ✅ Pre-compila con i dati di Google se disponibili
+    LaunchedEffect(currentUser) {
+        currentUser?.let { user ->
+            if (nome.isEmpty() && user.nome.isNotEmpty()) {
+                nome = user.nome
+            }
+            if (cognome.isEmpty() && user.cognome.isNotEmpty()) {
+                cognome = user.cognome
+            }
+        }
     }
 
-    // Pre-compila i campi quando l'utente viene caricato
-    LaunchedEffect(userState) {
-        when (userState) {
-            is UserState.NeedsProfileCompletion -> {
-                val user = userViewModel.getCurrentUserData()
-                if (user != null) {
-                    if (nome.isEmpty()) nome = user.nome
-                    if (cognome.isEmpty()) cognome = user.cognome
-                }
-            }
-            is UserState.Success -> {
-                Toast.makeText(context, "Profilo completato!", Toast.LENGTH_SHORT).show()
-                onProfileCompleted()
-            }
-            is UserState.Error -> {
-                Toast.makeText(context, (userState as UserState.Error).message, Toast.LENGTH_LONG).show()
-                isLoading = false
-            }
-            else -> {}
+    // ✅ Gestisci errori
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            isLoading = false
         }
     }
 
@@ -106,7 +104,8 @@ fun CompleteProfileScreen(
                     focusedLabelColor = Primary,
                     cursorColor = Primary
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                enabled = !isLoading
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -124,25 +123,8 @@ fun CompleteProfileScreen(
                     focusedLabelColor = Primary,
                     cursorColor = Primary
                 ),
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Campo Nickname
-            OutlinedTextField(
-                value = nickname,
-                onValueChange = { nickname = it },
-                label = { Text("Nickname") },
-                placeholder = { Text("Scegli un nickname") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    focusedLabelColor = Primary,
-                    cursorColor = Primary
-                ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                enabled = !isLoading
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -157,16 +139,26 @@ fun CompleteProfileScreen(
                         cognome.isBlank() -> {
                             Toast.makeText(context, "Inserisci il cognome", Toast.LENGTH_SHORT).show()
                         }
-                        nickname.isBlank() -> {
-                            Toast.makeText(context, "Inserisci un nickname", Toast.LENGTH_SHORT).show()
-                        }
                         else -> {
                             isLoading = true
-                            userViewModel.completeProfile(
-                                nome = nome.trim(),
-                                cognome = cognome.trim(),
-                                nickname = nickname.trim()
-                            )
+
+                            // ✅ Aggiorna nome e cognome dell'utente
+                            val userId = currentUser?.uid
+                            if (userId != null) {
+                                userViewModel.updateUserProfile(
+                                    nome = nome.trim(),
+                                    cognome = cognome.trim()
+                                )
+
+                                // ✅ Naviga al quiz
+                                Toast.makeText(context, "Profilo aggiornato!", Toast.LENGTH_SHORT).show()
+                                navController.navigate(Screen.Quiz.route) {
+                                    popUpTo(Screen.CompleteProfile.route) { inclusive = true }
+                                }
+                            } else {
+                                Toast.makeText(context, "Errore: utente non trovato", Toast.LENGTH_SHORT).show()
+                                isLoading = false
+                            }
                         }
                     }
                 },

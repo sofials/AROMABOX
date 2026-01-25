@@ -1,21 +1,33 @@
 package com.example.aromabox.data.model
 
-data class Perfume(
-    val profumoId: String = "",
-    val nome: String = "",
-    val brand: String = "",
-    val prezzo: Double = 0.0,
-    val descrizione: String = "",
-    val areaOlfattiva: String = "",
-    val piramideOlfattiva: PiramideOlfattiva = PiramideOlfattiva(),
-    val imageUrl: String = "",
-    val macchinettaId: String = "",
-    val macchinettaNome: String = "",
-    val slot: Int = 0,
-    val disponibile: Boolean = true,
-    val inErogazione: Boolean = false
-) {
-    constructor() : this("", "", "", 0.0, "", "", PiramideOlfattiva(), "", "", "", 0, true, false)
+import androidx.annotation.DrawableRes
+import com.example.aromabox.R
 
-    fun prezzoFormattato(): String = "€ %.2f".format(prezzo)
+data class Perfume(
+    val id: String = "",
+    val nome: String = "",
+    val marca: String = "",
+    val prezzo: Double = 0.0,
+    val categoria: String = "",
+    val disponibile: Boolean = true,
+    val slot: Int = 0,  // Slot nel distributore fisico
+    val noteOlfattive: NoteOlfattive = NoteOlfattive(),
+    val imageUrl: String = ""  // Nome file in drawable (es: "perfume_chanel_no5")
+) {
+    // Helper per ottenere la risorsa drawable
+    @DrawableRes
+    fun getImageResource(): Int {
+        return when (imageUrl) {
+            "perfume_chanel_no5" -> R.drawable.perfume_chanel_no5
+            "perfume_dior_sauvage" -> R.drawable.perfume_dior_sauvage
+            "perfume_armani_si" -> R.drawable.perfume_armani_si
+            else -> R.drawable.logo  // Fallback
+        }
+    }
 }
+
+data class NoteOlfattive(
+    val noteDiTesta: List<String> = emptyList(),
+    val noteDiCuore: List<String> = emptyList(),
+    val noteDiFondo: List<String> = emptyList()
+)

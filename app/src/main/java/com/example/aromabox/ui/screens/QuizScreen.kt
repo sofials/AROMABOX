@@ -34,7 +34,7 @@ import androidx.navigation.NavHostController
 import com.example.aromabox.R
 import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.ui.navigation.Screen
-import com.example.aromabox.viewmodel.UserViewModel
+import com.example.aromabox.ui.viewmodels.UserViewModel
 
 // Colori Quiz
 private val QuizProgressBg = Color(0xFFEEEEEE)

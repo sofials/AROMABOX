@@ -10,16 +10,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController  // ✅ NavController invece di NavHostController
 import androidx.navigation.NavHostController
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.theme.Primary
 import com.example.aromabox.ui.theme.Surface
 
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DistributoriScreen(navController: NavHostController) {
+fun DistributoriScreen(navController: NavController) {  // ✅ NavController
     Scaffold(
         topBar = {
             TopAppBar(
@@ -29,8 +28,8 @@ fun DistributoriScreen(navController: NavHostController) {
         },
         bottomBar = {
             BottomNavigationBar(
-                selectedScreen = Screen.Distributori,
-                navController = navController
+                selectedScreen = Screen.Distributori,  // ✅ Nome corretto
+                navController = navController as NavHostController
             )
         }
     ) { paddingValues ->

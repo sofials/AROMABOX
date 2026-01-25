@@ -8,8 +8,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
-
-
 object FirebaseManager {
     private const val TAG = "FirebaseManager"
     private val database: DatabaseReference = FirebaseDatabase.getInstance().reference
@@ -22,9 +20,9 @@ object FirebaseManager {
 
     // ========== USER OPERATIONS ==========
 
-    suspend fun getUserById(userId: String): User? {
+    suspend fun getUserById(uid: String): User? {  // ✅ Cambiato da userId a uid
         return try {
-            val snapshot = usersRef.child(userId).get().await()
+            val snapshot = usersRef.child(uid).get().await()
             snapshot.getValue(User::class.java)
         } catch (e: Exception) {
             Log.e(TAG, "Error getting user", e)
@@ -34,8 +32,8 @@ object FirebaseManager {
 
     suspend fun createUser(user: User): Boolean {
         return try {
-            usersRef.child(user.userId).setValue(user).await()
-            Log.d(TAG, "User created: ${user.userId}")
+            usersRef.child(user.uid).setValue(user).await()  // ✅ user.uid invece di user.userId
+            Log.d(TAG, "User created: ${user.uid}")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error creating user", e)
@@ -45,8 +43,8 @@ object FirebaseManager {
 
     suspend fun updateUser(user: User): Boolean {
         return try {
-            usersRef.child(user.userId).setValue(user).await()
-            Log.d(TAG, "User updated: ${user.userId}")
+            usersRef.child(user.uid).setValue(user).await()  // ✅ user.uid
+            Log.d(TAG, "User updated: ${user.uid}")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error updating user", e)
@@ -54,9 +52,9 @@ object FirebaseManager {
         }
     }
 
-    suspend fun updateUserField(userId: String, field: String, value: Any): Boolean {
+    suspend fun updateUserField(uid: String, field: String, value: Any): Boolean {  // ✅ uid
         return try {
-            usersRef.child(userId).child(field).setValue(value).await()
+            usersRef.child(uid).child(field).setValue(value).await()
             Log.d(TAG, "User field updated: $field")
             true
         } catch (e: Exception) {
@@ -65,7 +63,7 @@ object FirebaseManager {
         }
     }
 
-    fun observeUser(userId: String): Flow<User?> = callbackFlow {
+    fun observeUser(uid: String): Flow<User?> = callbackFlow {  // ✅ uid
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val user = snapshot.getValue(User::class.java)
@@ -78,10 +76,10 @@ object FirebaseManager {
             }
         }
 
-        usersRef.child(userId).addValueEventListener(listener)
+        usersRef.child(uid).addValueEventListener(listener)
 
         awaitClose {
-            usersRef.child(userId).removeEventListener(listener)
+            usersRef.child(uid).removeEventListener(listener)
         }
     }
 
@@ -166,11 +164,11 @@ object FirebaseManager {
         }
     }
 
-    suspend fun getUserOrders(userId: String): List<Order> {
+    suspend fun getUserOrders(uid: String): List<Order> {  // ✅ uid
         return try {
             val snapshot = ordersRef
-                .orderByChild("userId")
-                .equalTo(userId)
+                .orderByChild("uid")  // ✅ Assicurati che Order abbia uid, non userId
+                .equalTo(uid)
                 .get()
                 .await()
             snapshot.children.mapNotNull { it.getValue(Order::class.java) }

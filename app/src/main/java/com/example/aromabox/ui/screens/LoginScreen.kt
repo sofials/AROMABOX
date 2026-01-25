@@ -1,5 +1,6 @@
 package com.example.aromabox.ui.screens
 
+import android.app.Application
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -28,11 +29,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.aromabox.R
+import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.theme.*
-import com.example.aromabox.viewmodel.AuthState
-import com.example.aromabox.viewmodel.AuthViewModel
+import com.example.aromabox.ui.viewmodels.AuthViewModel
 
 // Colori per il gradiente
 private val GradientLeft = Color(0xFFB1CEF0)
@@ -42,11 +45,20 @@ private val LinkBlue = Color(0xFF4A90D9)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,
-    onNavigateToRegister: () -> Unit,
-    viewModel: AuthViewModel = viewModel()
+    navController: NavController
 ) {
     val context = LocalContext.current
+
+    // ✅ Factory corretto per AuthViewModel
+    val viewModel: AuthViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                return AuthViewModel(context.applicationContext as Application) as T
+            }
+        }
+    )
+
     val authState by viewModel.authState.collectAsState()
 
     var email by remember { mutableStateOf("") }
@@ -65,14 +77,21 @@ fun LoginScreen(
         }
     }
 
+    // ✅ Gestione navigazione con NavController
     LaunchedEffect(authState) {
         when (authState) {
-            is AuthState.Success -> {
+            is AuthViewModel.AuthState.Success -> {
                 Toast.makeText(context, "Accesso riuscito!", Toast.LENGTH_SHORT).show()
-                onLoginSuccess()
+                navController.navigate(Screen.Home.route) {
+                    popUpTo(Screen.Login.route) { inclusive = true }
+                }
             }
-            is AuthState.Error -> {
-                Toast.makeText(context, (authState as AuthState.Error).message, Toast.LENGTH_LONG).show()
+            is AuthViewModel.AuthState.Error -> {
+                Toast.makeText(
+                    context,
+                    (authState as AuthViewModel.AuthState.Error).message,
+                    Toast.LENGTH_LONG
+                ).show()
             }
             else -> {}
         }
@@ -121,14 +140,27 @@ fun LoginScreen(
         ) {
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Logo
-            Text(
-                text = "AromaBox",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = Primary,
-                textAlign = TextAlign.Center
-            )
+            Box(
+                modifier = Modifier.size(100.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Ombra - logo leggermente spostato e semi-trasparente
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(90.dp)
+                        .offset(x = 2.dp, y = 2.dp),
+                    alpha = 0.3f,
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.Black)
+                )
+                // Logo principale
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "AromaBox Logo",
+                    modifier = Modifier.size(90.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -168,7 +200,9 @@ fun LoginScreen(
                             fontSize = 14.sp,
                             color = LinkBlue,
                             fontWeight = FontWeight.Medium,
-                            modifier = Modifier.clickable { onNavigateToRegister() }
+                            modifier = Modifier.clickable {
+                                navController.navigate(Screen.Register.route)
+                            }
                         )
                     }
 
@@ -243,31 +277,25 @@ fun LoginScreen(
                                 if (email.isNotBlank()) {
                                     viewModel.sendPasswordReset(email) { success ->
                                         if (success) {
-                                            Toast
-                                                .makeText(
-                                                    context,
-                                                    "Email di recupero inviata!",
-                                                    Toast.LENGTH_SHORT
-                                                )
-                                                .show()
+                                            Toast.makeText(
+                                                context,
+                                                "Email di recupero inviata!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         } else {
-                                            Toast
-                                                .makeText(
-                                                    context,
-                                                    "Errore nell'invio dell'email",
-                                                    Toast.LENGTH_SHORT
-                                                )
-                                                .show()
+                                            Toast.makeText(
+                                                context,
+                                                "Errore nell'invio dell'email",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     }
                                 } else {
-                                    Toast
-                                        .makeText(
-                                            context,
-                                            "Inserisci prima la tua email",
-                                            Toast.LENGTH_SHORT
-                                        )
-                                        .show()
+                                    Toast.makeText(
+                                        context,
+                                        "Inserisci prima la tua email",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             }
                     )
@@ -287,9 +315,9 @@ fun LoginScreen(
                             containerColor = if (isFormValid) Primary else Color(0xFFE5E7EB),
                             contentColor = if (isFormValid) Color.White else Color(0xFF999999)
                         ),
-                        enabled = isFormValid && authState !is AuthState.Loading
+                        enabled = isFormValid && authState !is AuthViewModel.AuthState.Loading
                     ) {
-                        if (authState is AuthState.Loading) {
+                        if (authState is AuthViewModel.AuthState.Loading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 color = Color.White
@@ -325,7 +353,9 @@ fun LoginScreen(
                     OutlinedButton(
                         onClick = {
                             viewModel.signInWithGoogle { intentSender ->
-                                launcher.launch(IntentSenderRequest.Builder(intentSender).build())
+                                launcher.launch(
+                                    IntentSenderRequest.Builder(intentSender).build()
+                                )
                             }
                         },
                         modifier = Modifier

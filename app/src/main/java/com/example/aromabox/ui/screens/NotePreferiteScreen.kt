@@ -1,3 +1,4 @@
+// kotlin
 package com.example.aromabox.ui.screens
 
 import androidx.compose.foundation.Image
@@ -26,8 +27,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.utils.getImageResForNota
-import com.example.aromabox.viewmodel.UserState
-import com.example.aromabox.viewmodel.UserViewModel
+import com.example.aromabox.ui.viewmodels.UserViewModel
 
 private val ButtonColor = Color(0xFF737083)
 
@@ -37,12 +37,11 @@ fun NotePreferiteScreen(
     navController: NavHostController,
     userViewModel: UserViewModel = viewModel()
 ) {
-    val userState by userViewModel.userState.collectAsState()
+    // Converti StateFlow -> State con collectAsState() prima di usare 'by'
+    val currentUser by userViewModel.currentUser.collectAsState()
+    val isLoading by userViewModel.isLoading.collectAsState()
 
-    val profilo = when (val state = userState) {
-        is UserState.Success -> state.user.profiloOlfattivo
-        else -> null
-    }
+    val profilo = currentUser?.profiloOlfattivo
 
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
@@ -103,34 +102,47 @@ fun NotePreferiteScreen(
             }
         }
     ) { paddingValues ->
-        if (profilo != null) {
-            val tutteLeNote = profilo.getTutteLeNote()
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                items(tutteLeNote) { nota ->
-                    NotaPreferitaItem(nota = nota)
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
             }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Completa il quiz per vedere le tue note preferite",
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
+            profilo != null && profilo.getTutteLeNote().isNotEmpty() -> {
+                val tutteLeNote = profilo.getTutteLeNote()
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    items(tutteLeNote) { nota ->
+                        NotaPreferitaItem(nota = nota)
+                    }
+                }
+            }
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Completa il quiz per vedere le tue note preferite",
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }

@@ -30,14 +30,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
-import com.example.aromabox.data.firebase.AuthManager
+import androidx.navigation.NavController
 import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.theme.*
+import com.example.aromabox.ui.viewmodels.UserViewModel
+import com.example.aromabox.ui.viewmodels.AuthViewModel
 import com.example.aromabox.utils.getImageResForNota
-import com.example.aromabox.viewmodel.UserViewModel
-import com.example.aromabox.viewmodel.UserState
 
 private val TabActiveBg = Color(0xFFCFC5FF)
 private val TabInactiveBg = Color(0xFFF2F2F2)
@@ -49,16 +48,12 @@ enum class ProfileTab {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    navController: NavHostController,
-    userViewModel: UserViewModel = viewModel()
+    navController: NavController,
+    userViewModel: UserViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val userState by userViewModel.userState.collectAsState()
-
-    val user = when (val state = userState) {
-        is UserState.Success -> state.user
-        else -> null
-    }
+    val currentUser by userViewModel.currentUser.collectAsState()
 
     var selectedTab by remember { mutableStateOf(ProfileTab.PROFILO_OLFATTIVO) }
 
@@ -83,10 +78,9 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
                 .background(Color.White)
         ) {
-            // Profile Header
+            // Profile Header - NON scorre
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -106,7 +100,7 @@ fun ProfileScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = user?.nome?.firstOrNull()?.uppercase() ?: "?",
+                            text = currentUser?.nome?.firstOrNull()?.uppercase() ?: "?",
                             fontSize = 36.sp,
                             fontWeight = FontWeight.Bold,
                             color = Primary
@@ -136,21 +130,21 @@ fun ProfileScreen(
 
                 // Nome
                 Text(
-                    text = "${user?.nome ?: ""} ${user?.cognome ?: ""}",
+                    text = "${currentUser?.nome ?: ""} ${currentUser?.cognome ?: ""}",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.Black
                 )
 
-                // Username
+                // Email
                 Text(
-                    text = "@${user?.nickname ?: ""}",
+                    text = currentUser?.email ?: "",
                     fontSize = 13.sp,
                     color = Color(0xFF777777)
                 )
             }
 
-            // Tabs
+            // Tabs - NON scorre
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,41 +180,54 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Contenuto tab
-            when (selectedTab) {
-                ProfileTab.PREFERITI -> PreferitiContent(user?.preferitiIds ?: emptyList())
-                ProfileTab.PROFILO_OLFATTIVO -> ProfiloOlfattivoContent(
-                    profilo = user?.profiloOlfattivo,
-                    onRifaiQuiz = {
-                        navController.navigate(Screen.Quiz.route)
-                    },
-                    onNotePreferiteClick = {
-                        navController.navigate(Screen.NotePreferite.route)
+            // Contenuto tab - QUESTA PARTE scorre se necessario
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    when (selectedTab) {
+                        ProfileTab.PREFERITI -> PreferitiContent(
+                            currentUser?.preferiti ?: emptyList()
+                        )
+                        ProfileTab.PROFILO_OLFATTIVO -> ProfiloOlfattivoContent(
+                            profilo = currentUser?.profiloOlfattivo,
+                            onRifaiQuiz = {
+                                navController.navigate(Screen.Quiz.route)
+                            },
+                            onNotePreferiteClick = {
+                                navController.navigate(Screen.NotePreferite.route)
+                            }
+                        )
+                        ProfileTab.BADGE -> BadgeContent(
+                            currentUser?.badges ?: emptyList()
+                        )
                     }
-                )
-                ProfileTab.BADGE -> BadgeContent(user?.badge ?: emptyList())
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Logout button
+            // Logout button - Sempre visibile in fondo
             OutlinedButton(
                 onClick = {
-                    AuthManager.signOut()
-                    (context as? Activity)?.let { activity ->
-                        activity.finish()
-                        activity.startActivity(activity.intent)
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Logout", color = Color.Red)
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -231,7 +238,7 @@ fun ProfiloOlfattivoContent(
     onRifaiQuiz: () -> Unit,
     onNotePreferiteClick: () -> Unit
 ) {
-    if (profilo == null || !profilo.isCompleto()) {
+    if (profilo == null) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -294,11 +301,13 @@ fun ProfiloOlfattivoContent(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // ✅ Mostra le prime 3 note usando getTutteLeNote() dal model
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
-                        profilo.getTutteLeNote().take(3).forEach { nota ->
+                        val tutteLeNote = profilo.getTutteLeNote()
+                        tutteLeNote.take(3).forEach { nota ->
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
@@ -336,6 +345,7 @@ fun ProfiloOlfattivoContent(
 
 @Composable
 fun PieChart(profilo: ProfiloOlfattivo) {
+    // ✅ Usa i metodi del model per ottenere le percentuali
     val percentuali = listOf(
         profilo.getPercentualeFloreale(),
         profilo.getPercentualeFruttata(),
@@ -345,19 +355,19 @@ fun PieChart(profilo: ProfiloOlfattivo) {
     )
 
     val colori = listOf(
-        Color(0xFFCCB4E1),
-        Color(0xFFDCCDC5),
-        Color(0xFFB8D2D6),
-        Color(0xFFD8EFFF),
-        Color(0xFFC5D2BE)
+        Color(0xFFCCB4E1),  // floreale
+        Color(0xFFDCCDC5),  // fruttato
+        Color(0xFFB8D2D6),  // speziato
+        Color(0xFFD8EFFF),  // gourmand
+        Color(0xFFC5D2BE)   // legnoso
     )
 
     val coloriTesto = listOf(
-        Color(0xFF9A7BB8),
-        Color(0xFFA89A92),
-        Color(0xFF7A9EA3),
-        Color(0xFF6BA3C7),
-        Color(0xFF8A9E7D)
+        Color(0xFF9A7BB8),  // floreale
+        Color(0xFFA89A92),  // fruttato
+        Color(0xFF7A9EA3),  // speziato
+        Color(0xFF6BA3C7),  // gourmand
+        Color(0xFF8A9E7D)   // legnoso
     )
 
     val nomi = listOf("floreale", "fruttato", "speziato", "gourmand", "legnoso")
@@ -371,7 +381,7 @@ fun PieChart(profilo: ProfiloOlfattivo) {
         var currentAngle = -90f
 
         percentuali.forEach { percentuale ->
-            val sweepAngle = if (total > 0) (percentuale / total) * 360f else 0f
+            val sweepAngle = if (total > 0f) (percentuale / total) * 360f else 0f
             angles.add(currentAngle + sweepAngle / 2)
             currentAngle += sweepAngle
         }
@@ -388,7 +398,7 @@ fun PieChart(profilo: ProfiloOlfattivo) {
 
             var startAngle = -90f
 
-            if (total > 0) {
+            if (total > 0f) {
                 percentuali.forEachIndexed { index, percentuale ->
                     val sweepAngle = (percentuale / total) * 360f
                     drawArc(
@@ -408,7 +418,7 @@ fun PieChart(profilo: ProfiloOlfattivo) {
         val labelRadius = 115.dp
 
         percentuali.forEachIndexed { index, percentuale ->
-            if (percentuale > 0) {
+            if (percentuale > 0f) {
                 val angleRad = Math.toRadians(angles[index].toDouble())
                 val xOffset = (labelRadius.value * kotlin.math.cos(angleRad)).dp
                 val yOffset = (labelRadius.value * kotlin.math.sin(angleRad)).dp
@@ -428,8 +438,8 @@ fun PieChart(profilo: ProfiloOlfattivo) {
 }
 
 @Composable
-fun PreferitiContent(preferitiIds: List<String>) {
-    if (preferitiIds.isEmpty()) {
+fun PreferitiContent(preferiti: List<String>) {
+    if (preferiti.isEmpty()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -443,7 +453,7 @@ fun PreferitiContent(preferitiIds: List<String>) {
         }
     } else {
         Text(
-            text = "Hai ${preferitiIds.size} profumi preferiti",
+            text = "Hai ${preferiti.size} profumi preferiti",
             modifier = Modifier.padding(16.dp)
         )
     }
