@@ -12,118 +12,124 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.aromabox.data.model.Perfume
+import com.example.aromabox.ui.components.CommonTopBar
+import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.viewmodels.CatalogViewModel
 import com.example.aromabox.ui.viewmodels.UserViewModel
+import java.util.Locale
 
-// ✅ Colori definiti localmente (o importali da Theme.kt se esistono)
+// Colori dal Figma
+private val PageBackground = Color(0xFFF2F2F2)
 private val PrimaryColor = Color(0xFF8378BF)
 private val SecondaryColor = Color(0xFFC4B9FF)
-private val AccentColor = Color(0xFF605882)
 private val NeutralColor = Color(0xFF737083)
+private val CardBackground = Color.White
+private val ImageBackground = Color(0xFFF2F2F2)
+private val UnavailableOverlay = Color(0xFFCACACA)
+private val UnavailableImageBg = Color(0xFF9A9A9A)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogScreen(
     navController: NavController,
     catalogViewModel: CatalogViewModel = viewModel(),
     userViewModel: UserViewModel = viewModel()
 ) {
-    // ✅ Corretto: collectAsState() per StateFlow
+    // StateFlow observers
     val perfumes by catalogViewModel.perfumes.collectAsState()
     val isLoading by catalogViewModel.isLoading.collectAsState()
     val selectedCategory by catalogViewModel.selectedCategory.collectAsState()
+    val currentUser by userViewModel.currentUser.collectAsState()
 
-    // ✅ Usa funzione pubblica invece di accedere a currentUser privato
-    val currentUserId = userViewModel.getCurrentUserId()
-    val favoriteIds = userViewModel.getFavoriteIds() // Dovrai creare questa funzione
+    // Stato locale per la ricerca
+    var searchQuery by remember { mutableStateOf("") }
 
-    val categories = listOf("Tutti", "Floreale", "Fruttato", "Speziato", "Gourmand", "Legnoso")
+    // Preferiti dell'utente
+    val favoriteIds = currentUser?.preferiti ?: emptyList()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(PrimaryColor, SecondaryColor)
-                )
+    LaunchedEffect(Unit) {
+        userViewModel.loadCurrentUser()
+    }
+
+    Scaffold(
+        topBar = {
+            CommonTopBar(
+                onMenuClick = { /* TODO: Menu */ }
             )
-    ) {
+        },
+        bottomBar = {
+            BottomNavigationBar(
+                selectedScreen = Screen.Catalog,
+                navController = navController
+            )
+        },
+        containerColor = PageBackground
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(paddingValues)
         ) {
-            // Header
-            Text(
-                text = "Catalogo",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 16.dp)
+            // Barra di ricerca + Filtri
+            SearchAndFilterBar(
+                searchQuery = searchQuery,
+                onSearchChange = { searchQuery = it },
+                onFilterClick = { /* TODO: Apri filtri */ }
             )
 
-            // Filtro categorie
-            ScrollableTabRow(
-                selectedTabIndex = categories.indexOf(selectedCategory),
-                containerColor = Color.Transparent,
-                contentColor = Color.White,
-                edgePadding = 0.dp,
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                categories.forEach { category ->
-                    Tab(
-                        selected = selectedCategory == category,
-                        onClick = { catalogViewModel.filterByCategory(category) },
-                        text = {
-                            Text(
-                                text = category,
-                                fontWeight = if (selectedCategory == category)
-                                    FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    )
-                }
-            }
-
-            // Loading
+            // Contenuto principale
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color.White)
+                    CircularProgressIndicator(color = PrimaryColor)
                 }
             } else {
-                // Grid profumi
+                // Filtra per ricerca
+                val filteredPerfumes = catalogViewModel.getFilteredPerfumes().filter {
+                    searchQuery.isEmpty() ||
+                            it.nome.contains(searchQuery, ignoreCase = true) ||
+                            it.marca.contains(searchQuery, ignoreCase = true)
+                }
+
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(
+                        start = 0.dp,
+                        end = 0.dp,
+                        top = 8.dp,
+                        bottom = 16.dp
+                    )
                 ) {
-                    items(catalogViewModel.getFilteredPerfumes()) { perfume ->
-                        PerfumeCard(
+                    items(filteredPerfumes) { perfume ->
+                        PerfumeCardFigma(
                             perfume = perfume,
                             isFavorite = favoriteIds.contains(perfume.id),
                             onFavoriteClick = {
-                                currentUserId?.let { uid ->
-                                    userViewModel.toggleFavorite(perfume.id)
-                                }
+                                userViewModel.toggleFavorite(perfume.id)
                             },
                             onClick = {
                                 navController.navigate("perfume_detail/${perfume.id}")
@@ -137,97 +143,192 @@ fun CatalogScreen(
 }
 
 @Composable
-fun PerfumeCard(
+fun SearchAndFilterBar(
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
+    onFilterClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Campo di ricerca
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchChange,
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
+            placeholder = {
+                Text(
+                    text = "cerca...",
+                    color = Color.Black.copy(alpha = 0.57f),
+                    fontSize = 16.sp
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Cerca",
+                    tint = Color(0xFF6B7280)
+                )
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                focusedBorderColor = Color(0xFFD1D5DB),
+                unfocusedBorderColor = Color(0xFFD1D5DB)
+            ),
+            shape = RoundedCornerShape(63.dp),
+            singleLine = true
+        )
+
+        // Pulsante Filtri
+        Button(
+            onClick = onFilterClick,
+            modifier = Modifier.height(40.dp),
+            shape = RoundedCornerShape(5.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = NeutralColor,
+                contentColor = PageBackground
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Tune,
+                contentDescription = "Filtri",
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Filtri",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+    }
+}
+
+@Composable
+fun PerfumeCardFigma(
     perfume: Perfume,
     isFavorite: Boolean,
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
+    val isAvailable = perfume.disponibile
+
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(240.dp)
+            .width(188.dp)
+            .height(257.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(4.dp)
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isAvailable) CardBackground else UnavailableOverlay
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column {
-                // Immagine
-                Image(
-                    painter = painterResource(id = perfume.getImageResource()),
-                    contentDescription = perfume.nome,
+                // Area Immagine
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(140.dp)
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                    contentScale = ContentScale.Crop
-                )
+                        .height(136.dp)
+                        .background(if (isAvailable) ImageBackground else UnavailableImageBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = perfume.getImageResource()),
+                        contentDescription = perfume.nome,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        contentScale = ContentScale.Fit
+                    )
 
-                // Info
+                    // Overlay "SOLO IN NEGOZIO" se non disponibile
+                    if (!isAvailable) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.20f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "SOLO IN NEGOZIO",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.2.sp
+                            )
+                        }
+                    }
+                }
+
+                // Info prodotto
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(12.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
+                    // Marca
                     Text(
-                        text = perfume.marca,
-                        fontSize = 12.sp,
-                        color = NeutralColor,
-                        fontWeight = FontWeight.Medium
+                        text = perfume.marca.uppercase(),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF222222),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 18.sp
                     )
+
+                    // Nome prodotto
                     Text(
                         text = perfume.nome,
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryColor,
-                        maxLines = 1
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFF1E1E1E),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 23.sp,
+                        letterSpacing = 0.5.sp
                     )
+
                     Spacer(modifier = Modifier.weight(1f))
+
+                    // Prezzo
                     Text(
-                        text = "€ ${String.format("%.2f", perfume.prezzo)}",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AccentColor
+                        text = String.format(Locale.ITALIAN, "%.2f €", perfume.prezzo),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        color = NeutralColor,
+                        lineHeight = 28.64.sp
                     )
                 }
             }
 
-            // Bottone Preferiti
-            IconButton(
-                onClick = onFavoriteClick,
+            // Pulsante Preferiti (in alto a destra)
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(36.dp)
-                    .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                    .padding(11.dp)
+                    .size(34.dp, 26.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(SecondaryColor)
+                    .clickable(onClick = onFavoriteClick),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isFavorite) Icons.Default.Favorite
-                    else Icons.Default.FavoriteBorder,
-                    contentDescription = if (isFavorite) "Rimuovi preferito"
-                    else "Aggiungi preferito",
-                    tint = if (isFavorite) Color.Red else NeutralColor
+                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = if (isFavorite) "Rimuovi preferito" else "Aggiungi preferito",
+                    tint = Color.White,
+                    modifier = Modifier.size(19.dp, 18.dp)
                 )
-            }
-
-            // Badge "Non disponibile"
-            if (!perfume.disponibile) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp)
-                        .background(Color.Red, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "Non disponibile",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
         }
     }
