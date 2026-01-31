@@ -17,15 +17,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class AuthViewModel(
-    application: Application,
-    private val userRepository: UserRepository = UserRepository()
+    application: Application
 ) : AndroidViewModel(application) {
+
+    // ✅ FIX: Repository creato internamente, non come parametro del costruttore
+    private val userRepository = UserRepository()
 
     private val auth = FirebaseAuth.getInstance()
     private val oneTapClient = Identity.getSignInClient(application)
 
     // ⚠️ IMPORTANTE: Sostituisci con il tuo Web Client ID da Firebase Console
-    // Lo trovi in google-services.json sotto "oauth_client" -> "client_id" (type 3)
     private val webClientId = "89037242874-1bm7bblrnhnv8e3031hcmrl0vrvifti6.apps.googleusercontent.com"
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)

@@ -9,8 +9,10 @@ sealed class Screen(val route: String) {
     object NotePreferite : Screen("note_preferite")
     object Home : Screen("home")
     object Catalog : Screen("catalog")
-    object Distributori : Screen("distributori")  // ✅ Italiano
-    object Storico : Screen("storico")           // ✅ Italiano
+    object Filters : Screen("filters")
+    object FilterSort : Screen("filter_sort")  // ✅ Schermata Ordina Per
+    object Distributori : Screen("distributori")
+    object Storico : Screen("storico")
     object Profile : Screen("profile")
 
     object PerfumeDetail : Screen("perfume_detail/{perfumeId}") {

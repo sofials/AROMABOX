@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
@@ -26,7 +24,6 @@ import com.google.firebase.auth.FirebaseAuth
 class MainActivity : ComponentActivity() {
 
     private val userViewModel: UserViewModel by viewModels()
-    private val auth = FirebaseAuth.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,16 +48,40 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
     val currentUser by userViewModel.currentUser.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
 
-    val startDestination = when {
-        isLoading -> Screen.Loading.route
-        currentUser != null -> {
-            if (currentUser?.profiloOlfattivo == null) {
-                Screen.Quiz.route
-            } else {
-                Screen.Home.route
+    // ✅ FIX: Calcola startDestination SOLO una volta all'avvio
+    // Usa remember con una chiave che non cambia dopo il primo caricamento
+    var hasNavigatedInitially by remember { mutableStateOf(false) }
+
+    // Mostra loading solo durante il caricamento iniziale
+    if (isLoading && !hasNavigatedInitially) {
+        LoadingScreen()
+        return
+    }
+
+    // ✅ Calcola la destinazione iniziale solo la prima volta
+    val startDestination = remember(hasNavigatedInitially) {
+        if (!hasNavigatedInitially) {
+            hasNavigatedInitially = true
+            when {
+                currentUser == null -> Screen.Login.route
+                currentUser?.profiloOlfattivo == null -> Screen.Quiz.route
+                else -> Screen.Home.route
+            }
+        } else {
+            // Dopo la navigazione iniziale, usa sempre Home come default
+            // (la navigazione effettiva sarà gestita dal NavController)
+            Screen.Home.route
+        }
+    }
+
+    // ✅ Gestisci il logout: se l'utente diventa null DOPO la navigazione iniziale
+    LaunchedEffect(currentUser) {
+        if (hasNavigatedInitially && currentUser == null && !isLoading) {
+            // L'utente ha fatto logout, torna al login
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
             }
         }
-        else -> Screen.Login.route
     }
 
     NavHost(
@@ -105,10 +126,20 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
         }
 
         composable(Screen.Catalog.route) {
-            CatalogScreen(navController = navController)
+            CatalogScreen(
+                navController = navController,
+                userViewModel = userViewModel
+            )
         }
 
-        // ✅ Usa i nomi corretti delle tue schermate
+        composable(Screen.Filters.route) {
+            FilterScreen(navController = navController)
+        }
+
+        composable(Screen.FilterSort.route) {
+            FilterSortScreen(navController = navController)
+        }
+
         composable(Screen.Distributori.route) {
             DistributoriScreen(navController = navController)
         }

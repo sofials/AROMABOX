@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -50,7 +49,7 @@ private val UnavailableImageBg = Color(0xFF9A9A9A)
 fun CatalogScreen(
     navController: NavController,
     catalogViewModel: CatalogViewModel = viewModel(),
-    userViewModel: UserViewModel = viewModel()
+    userViewModel: UserViewModel,
 ) {
     // StateFlow observers
     val perfumes by catalogViewModel.perfumes.collectAsState()
@@ -87,11 +86,13 @@ fun CatalogScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Barra di ricerca + Filtri
-            SearchAndFilterBar(
+            // ✅ NUOVA Barra di ricerca con Filtri in alto a destra
+            SearchBarWithFilters(
                 searchQuery = searchQuery,
                 onSearchChange = { searchQuery = it },
-                onFilterClick = { /* TODO: Apri filtri */ }
+                onFilterClick = {
+                    navController.navigate(Screen.Filters.route)
+                }
             )
 
             // Contenuto principale
@@ -142,25 +143,57 @@ fun CatalogScreen(
     }
 }
 
+// ✅ NUOVA Barra di ricerca con Filtri in alto a destra
 @Composable
-fun SearchAndFilterBar(
+fun SearchBarWithFilters(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     onFilterClick: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        // Campo di ricerca
+        // Riga superiore: Titolo + Filtri
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Pulsante Filtri in alto a destra
+            Button(
+                onClick = onFilterClick,
+                modifier = Modifier.height(36.dp),
+                shape = RoundedCornerShape(5.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NeutralColor,
+                    contentColor = PageBackground
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Tune,
+                    contentDescription = "Filtri",
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Filtri",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Campo di ricerca sotto
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
             modifier = Modifier
-                .weight(1f)
+                .fillMaxWidth()
                 .height(48.dp),
             placeholder = {
                 Text(
@@ -185,30 +218,6 @@ fun SearchAndFilterBar(
             shape = RoundedCornerShape(63.dp),
             singleLine = true
         )
-
-        // Pulsante Filtri
-        Button(
-            onClick = onFilterClick,
-            modifier = Modifier.height(40.dp),
-            shape = RoundedCornerShape(5.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = NeutralColor,
-                contentColor = PageBackground
-            ),
-            contentPadding = PaddingValues(horizontal = 12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Tune,
-                contentDescription = "Filtri",
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Filtri",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
     }
 }
 

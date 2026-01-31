@@ -59,31 +59,35 @@ class UserViewModel(
         return _currentUser.value?.profiloOlfattivo != null
     }
 
-    // ✅ NUOVA FUNZIONE: Aggiorna nome e cognome
     fun updateUserProfile(nome: String, cognome: String) {
         viewModelScope.launch {
             val userId = getCurrentUserId() ?: return@launch
 
             try {
-                // Aggiorna solo nome e cognome
                 repository.updateUserField(userId, "nome", nome)
                 repository.updateUserField(userId, "cognome", cognome)
-
-                // Ricarica l'utente per aggiornare lo stato
                 loadCurrentUser()
-
             } catch (e: Exception) {
                 _errorMessage.value = "Errore nell'aggiornare il profilo: ${e.message}"
             }
         }
     }
 
+    // ✅ FIX: toggleFavorite corretto
     fun toggleFavorite(perfumeId: String) {
         viewModelScope.launch {
-            val userId = getCurrentUserId() ?: return@launch
+            val userId = getCurrentUserId()
+
+            // Controllo più esplicito
+            if (userId.isNullOrBlank()) {
+                _errorMessage.value = "Utente non autenticato"
+                return@launch
+            }
 
             try {
-                val currentFavorites = getFavoriteIds().toMutableList()
+                // ✅ Leggi i preferiti FRESCHI dal server prima di modificare
+                val freshUser = repository.getUserByIdOnce(userId)
+                val currentFavorites = freshUser?.preferiti?.toMutableList() ?: mutableListOf()
 
                 if (currentFavorites.contains(perfumeId)) {
                     currentFavorites.remove(perfumeId)
@@ -91,7 +95,11 @@ class UserViewModel(
                     currentFavorites.add(perfumeId)
                 }
 
+                // ✅ Salva su Firebase
                 repository.updateFavorites(userId, currentFavorites)
+
+                // ✅ Aggiorna lo stato locale IMMEDIATAMENTE per UI reattiva
+                _currentUser.value = _currentUser.value?.copy(preferiti = currentFavorites)
 
             } catch (e: Exception) {
                 _errorMessage.value = "Errore nell'aggiornare i preferiti: ${e.message}"

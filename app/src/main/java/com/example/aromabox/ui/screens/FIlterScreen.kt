@@ -1,0 +1,250 @@
+package com.example.aromabox.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.example.aromabox.ui.navigation.Screen
+
+// Colori dal Figma
+private val PageBackground = Color(0xFFF2F2F2)
+private val HeaderBackground = Color(0xFFC4B9FF).copy(alpha = 0.40f)
+private val NeutralColor = Color(0xFF737083)
+private val TextColor = Color(0xFF1E1E1E)
+private val DividerColor = Color(0xFF737083)
+
+data class FilterOption(
+    val id: String,
+    val title: String,
+    val route: String? = null  // Per navigazione a sottopagina
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FilterScreen(
+    navController: NavController,
+    onApplyFilters: (Map<String, Any>) -> Unit = {}
+) {
+    // Stato filtri selezionati
+    var selectedFilters by remember { mutableStateOf(mapOf<String, Any>()) }
+
+    // Conteggio prodotti (placeholder - in futuro sarà dinamico)
+    val productCount = 3
+
+    val filterOptions = listOf(
+        FilterOption("ordina_per", "ORDINA PER"),
+        FilterOption("prezzo", "PREZZO"),
+        FilterOption("marca", "MARCA"),
+        FilterOption("genere", "GENERE"),
+        FilterOption("famiglia_olfattiva", "FAMIGLIA OLFATTIVA"),
+        FilterOption("note_aromatiche", "NOTE AROMATICHE")
+    )
+
+    Scaffold(
+        containerColor = PageBackground
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // Header
+            FilterHeader(
+                onClearFilters = {
+                    selectedFilters = emptyMap()
+                },
+                onClose = {
+                    navController.popBackStack()
+                }
+            )
+
+            // Lista filtri
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                filterOptions.forEach { option ->
+                    FilterOptionRow(
+                        title = option.title,
+                        onClick = {
+                            // Naviga alla sottopagina appropriata
+                            when (option.id) {
+                                "ordina_per" -> navController.navigate(Screen.FilterSort.route)
+                                // TODO: Altre sottopagine
+                                else -> { /* Non implementato ancora */ }
+                            }
+                        }
+                    )
+                }
+            }
+
+            // Bottone "Mostra X prodotti"
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
+            ) {
+                Button(
+                    onClick = {
+                        onApplyFilters(selectedFilters)
+                        navController.popBackStack()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeutralColor
+                    )
+                ) {
+                    Text(
+                        text = "MOSTRA $productCount PRODOTTI",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Bottom Navigation Bar
+            BottomNavigationBar(
+                selectedScreen = Screen.Catalog,
+                navController = navController
+            )
+        }
+    }
+}
+
+@Composable
+fun FilterHeader(
+    onClearFilters: () -> Unit,
+    onClose: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = HeaderBackground
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+        ) {
+            // Riga con X di chiusura
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Chiudi",
+                        tint = NeutralColor
+                    )
+                }
+            }
+
+            // Riga con "Cancella filtri" e "Filtri"
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Cancella filtri
+                Text(
+                    text = "Cancella filtri",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = TextColor,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier.clickable { onClearFilters() }
+                )
+
+                // Titolo "Filtri"
+                Text(
+                    text = "Filtri",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = NeutralColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FilterOptionRow(
+    title: String,
+    selectedValue: String? = null,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = PageBackground
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 35.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = NeutralColor
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Valore selezionato (se presente)
+                if (selectedValue != null) {
+                    Text(
+                        text = selectedValue,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = NeutralColor.copy(alpha = 0.7f)
+                    )
+                }
+
+                // Freccia
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Apri",
+                    tint = NeutralColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // Divider
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 0.dp),
+            thickness = 0.5.dp,
+            color = DividerColor
+        )
+    }
+}
