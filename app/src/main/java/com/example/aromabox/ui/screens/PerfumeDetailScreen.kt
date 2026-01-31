@@ -54,8 +54,8 @@ private val NotaFondoColor = Color(0xFF837ABF).copy(alpha = 0.12f)
 fun PerfumeDetailScreen(
     perfumeId: String,
     navController: NavController,
-    userViewModel: UserViewModel = viewModel(),
-    catalogViewModel: CatalogViewModel = viewModel()
+    userViewModel: UserViewModel,
+    catalogViewModel: CatalogViewModel
 ) {
     val allPerfumes by catalogViewModel.perfumes.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()

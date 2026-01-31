@@ -1,5 +1,6 @@
 package com.example.aromabox.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,64 +20,56 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.aromabox.ui.navigation.Screen
+import com.example.aromabox.ui.viewmodels.CatalogViewModel
+import com.example.aromabox.ui.viewmodels.SortOption
 
-// Colori dal Figma
 private val PageBackground = Color(0xFFF2F2F2)
 private val PrimaryColor = Color(0xFF8378BF)
 private val NeutralColor = Color(0xFF737083)
 private val TextColor = Color(0xFF374151)
 private val DividerColor = Color(0xFF737083)
 
-enum class SortOption(val displayName: String) {
-    PREZZO_CRESCENTE("Prezzo crescente"),
-    PREZZO_DECRESCENTE("Prezzo decrescente")
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterSortScreen(
     navController: NavController,
-    currentSort: SortOption? = null,
-    onSortSelected: (SortOption) -> Unit = {}
+    catalogViewModel: CatalogViewModel
 ) {
+    val currentSort by catalogViewModel.selectedSort.collectAsState()
     var selectedSort by remember { mutableStateOf(currentSort) }
 
-    Scaffold(
-        containerColor = PageBackground
-    ) { paddingValues ->
+    LaunchedEffect(currentSort) {
+        selectedSort = currentSort
+    }
+
+    Scaffold(containerColor = PageBackground) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Header
-            SortHeader(
+            FilterSubHeader(
+                title = "ORDINA PER",
                 onBackClick = { navController.popBackStack() },
-                onCloseClick = {
-                    // Torna al catalogo (chiude tutti i filtri)
-                    navController.popBackStack(Screen.Catalog.route, inclusive = false)
-                }
+                onCloseClick = { navController.popBackStack(Screen.Catalog.route, inclusive = false) }
             )
 
-            // Opzioni di ordinamento
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
                     .padding(top = 32.dp)
             ) {
-                SortOption.entries.forEach { option ->
-                    SortOptionRow(
-                        option = option,
+                listOf(SortOption.PREZZO_CRESCENTE, SortOption.PREZZO_DECRESCENTE).forEach { option ->
+                    RadioOptionRow(
+                        text = option.displayName,
                         isSelected = selectedSort == option,
                         onClick = { selectedSort = option }
                     )
-
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }
 
-            // Bottone "Salva"
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -84,98 +77,25 @@ fun FilterSortScreen(
             ) {
                 Button(
                     onClick = {
-                        selectedSort?.let { onSortSelected(it) }
-                        navController.popBackStack()
+                        catalogViewModel.setSortOption(selectedSort)
+                        navController.popBackStack(Screen.Catalog.route, inclusive = false)
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeutralColor
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = NeutralColor)
                 ) {
-                    Text(
-                        text = "SALVA",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
+                    Text("SALVA", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 }
             }
 
-            // Bottom Navigation Bar
-            BottomNavigationBar(
-                selectedScreen = Screen.Catalog,
-                navController = navController
-            )
+            BottomNavigationBar(selectedScreen = Screen.Catalog, navController = navController)
         }
     }
 }
 
 @Composable
-fun SortHeader(
-    onBackClick: () -> Unit,
-    onCloseClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = PageBackground
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-        ) {
-            // Riga con freccia indietro, titolo, X
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Freccia indietro
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = "Indietro",
-                        tint = NeutralColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                // Titolo centrato
-                Text(
-                    text = "ORDINA PER",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = NeutralColor
-                )
-
-                // X per chiudere
-                IconButton(onClick = onCloseClick) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Chiudi",
-                        tint = NeutralColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            // Divider
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = DividerColor
-            )
-        }
-    }
-}
-
-@Composable
-fun SortOptionRow(
-    option: SortOption,
+fun RadioOptionRow(
+    text: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -192,18 +112,13 @@ fun SortOptionRow(
             modifier = Modifier
                 .size(17.dp)
                 .clip(CircleShape)
-                .background(
-                    if (isSelected) PrimaryColor else Color.Transparent
-                )
+                .background(if (isSelected) PrimaryColor else Color.Transparent)
                 .then(
-                    if (!isSelected) {
-                        Modifier.background(Color.Transparent)
-                    } else Modifier
+                    if (!isSelected) Modifier.background(Color.Transparent) else Modifier
                 ),
             contentAlignment = Alignment.Center
         ) {
             if (isSelected) {
-                // Cerchio interno bianco
                 Box(
                     modifier = Modifier
                         .size(7.dp)
@@ -211,30 +126,66 @@ fun SortOptionRow(
                         .background(Color.White)
                 )
             } else {
-                // Bordo quando non selezionato
-                Box(
-                    modifier = Modifier
-                        .size(17.dp)
-                        .clip(CircleShape)
-                        .background(Color.Transparent)
-                ) {
-                    // Disegna solo il bordo
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        shape = CircleShape,
-                        color = Color.Transparent,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryColor)
-                    ) {}
-                }
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = CircleShape,
+                    color = Color.Transparent,
+                    border = BorderStroke(1.dp, PrimaryColor)
+                ) {}
             }
         }
 
-        // Testo opzione
         Text(
-            text = option.displayName,
+            text = text,
             fontSize = 13.sp,
             fontWeight = FontWeight.Normal,
             color = TextColor
         )
+    }
+}
+
+@Composable
+fun FilterSubHeader(
+    title: String,
+    onBackClick: () -> Unit,
+    onCloseClick: () -> Unit
+) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = PageBackground) {
+        Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = "Indietro",
+                        tint = NeutralColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = NeutralColor
+                )
+
+                IconButton(onClick = onCloseClick) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Chiudi",
+                        tint = NeutralColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            HorizontalDivider(thickness = 0.5.dp, color = DividerColor)
+        }
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.aromabox.ui.navigation.Screen
+import com.example.aromabox.ui.viewmodels.CatalogViewModel
 
 // Colori dal Figma
 private val PageBackground = Color(0xFFF2F2F2)
@@ -26,32 +27,13 @@ private val NeutralColor = Color(0xFF737083)
 private val TextColor = Color(0xFF1E1E1E)
 private val DividerColor = Color(0xFF737083)
 
-data class FilterOption(
-    val id: String,
-    val title: String,
-    val route: String? = null  // Per navigazione a sottopagina
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterScreen(
     navController: NavController,
-    onApplyFilters: (Map<String, Any>) -> Unit = {}
+    catalogViewModel: CatalogViewModel
 ) {
-    // Stato filtri selezionati
-    var selectedFilters by remember { mutableStateOf(mapOf<String, Any>()) }
-
-    // Conteggio prodotti (placeholder - in futuro sarà dinamico)
-    val productCount = 3
-
-    val filterOptions = listOf(
-        FilterOption("ordina_per", "ORDINA PER"),
-        FilterOption("prezzo", "PREZZO"),
-        FilterOption("marca", "MARCA"),
-        FilterOption("genere", "GENERE"),
-        FilterOption("famiglia_olfattiva", "FAMIGLIA OLFATTIVA"),
-        FilterOption("note_aromatiche", "NOTE AROMATICHE")
-    )
+    val productCount = catalogViewModel.getFilteredPerfumes().size
 
     Scaffold(
         containerColor = PageBackground
@@ -63,12 +45,8 @@ fun FilterScreen(
         ) {
             // Header
             FilterHeader(
-                onClearFilters = {
-                    selectedFilters = emptyMap()
-                },
-                onClose = {
-                    navController.popBackStack()
-                }
+                onClearFilters = { catalogViewModel.clearFilters() },
+                onClose = { navController.popBackStack() }
             )
 
             // Lista filtri
@@ -77,19 +55,35 @@ fun FilterScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                filterOptions.forEach { option ->
-                    FilterOptionRow(
-                        title = option.title,
-                        onClick = {
-                            // Naviga alla sottopagina appropriata
-                            when (option.id) {
-                                "ordina_per" -> navController.navigate(Screen.FilterSort.route)
-                                // TODO: Altre sottopagine
-                                else -> { /* Non implementato ancora */ }
-                            }
-                        }
-                    )
-                }
+                FilterOptionRow(
+                    title = "ORDINA PER",
+                    onClick = { navController.navigate(Screen.FilterSort.route) }
+                )
+
+                FilterOptionRow(
+                    title = "PREZZO",
+                    onClick = { navController.navigate(Screen.FilterPrice.route) }
+                )
+
+                FilterOptionRow(
+                    title = "MARCA",
+                    onClick = { navController.navigate(Screen.FilterBrand.route) }
+                )
+
+                FilterOptionRow(
+                    title = "GENERE",
+                    onClick = { navController.navigate(Screen.FilterGender.route) }
+                )
+
+                FilterOptionRow(
+                    title = "FAMIGLIA OLFATTIVA",
+                    onClick = { navController.navigate(Screen.FilterFamily.route) }
+                )
+
+                FilterOptionRow(
+                    title = "NOTE AROMATICHE",
+                    onClick = { navController.navigate(Screen.FilterNotes.route) }
+                )
             }
 
             // Bottone "Mostra X prodotti"
@@ -99,17 +93,12 @@ fun FilterScreen(
                     .padding(horizontal = 24.dp, vertical = 24.dp)
             ) {
                 Button(
-                    onClick = {
-                        onApplyFilters(selectedFilters)
-                        navController.popBackStack()
-                    },
+                    onClick = { navController.popBackStack() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeutralColor
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = NeutralColor)
                 ) {
                     Text(
                         text = "MOSTRA $productCount PRODOTTI",
@@ -120,7 +109,6 @@ fun FilterScreen(
                 }
             }
 
-            // Bottom Navigation Bar
             BottomNavigationBar(
                 selectedScreen = Screen.Catalog,
                 navController = navController
@@ -143,7 +131,6 @@ fun FilterHeader(
                 .fillMaxWidth()
                 .statusBarsPadding()
         ) {
-            // Riga con X di chiusura
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -159,7 +146,6 @@ fun FilterHeader(
                 }
             }
 
-            // Riga con "Cancella filtri" e "Filtri"
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -168,7 +154,6 @@ fun FilterHeader(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Cancella filtri
                 Text(
                     text = "Cancella filtri",
                     fontSize = 15.sp,
@@ -178,7 +163,6 @@ fun FilterHeader(
                     modifier = Modifier.clickable { onClearFilters() }
                 )
 
-                // Titolo "Filtri"
                 Text(
                     text = "Filtri",
                     fontSize = 14.sp,
@@ -193,44 +177,29 @@ fun FilterHeader(
 @Composable
 fun FilterOptionRow(
     title: String,
-    selectedValue: String? = null,
     onClick: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        color = PageBackground
-    ) {
-        Row(
+    Column {
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 35.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .clickable(onClick = onClick),
+            color = PageBackground
         ) {
-            Text(
-                text = title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = NeutralColor
-            )
-
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 35.dp, vertical = 18.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Valore selezionato (se presente)
-                if (selectedValue != null) {
-                    Text(
-                        text = selectedValue,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = NeutralColor.copy(alpha = 0.7f)
-                    )
-                }
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NeutralColor
+                )
 
-                // Freccia
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "Apri",
@@ -240,11 +209,6 @@ fun FilterOptionRow(
             }
         }
 
-        // Divider
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 0.dp),
-            thickness = 0.5.dp,
-            color = DividerColor
-        )
+        HorizontalDivider(thickness = 0.5.dp, color = DividerColor)
     }
 }

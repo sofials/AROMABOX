@@ -48,7 +48,7 @@ private val UnavailableImageBg = Color(0xFF9A9A9A)
 @Composable
 fun CatalogScreen(
     navController: NavController,
-    catalogViewModel: CatalogViewModel = viewModel(),
+    catalogViewModel: CatalogViewModel,
     userViewModel: UserViewModel,
 ) {
     // StateFlow observers
@@ -193,8 +193,7 @@ fun SearchBarWithFilters(
             value = searchQuery,
             onValueChange = onSearchChange,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
+                .fillMaxWidth(),
             placeholder = {
                 Text(
                     text = "cerca...",
