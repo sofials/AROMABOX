@@ -3,13 +3,13 @@ package com.example.aromabox.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aromabox.data.model.Perfume
+import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.data.repository.PerfumeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// Enum per le opzioni di ordinamento
 enum class SortOption(val displayName: String) {
     NESSUNO("Nessuno"),
     PREZZO_CRESCENTE("Prezzo crescente"),
@@ -158,6 +158,13 @@ class CatalogViewModel(
             }
         }
 
+        // Filtro genere
+        if (_selectedGenders.value.isNotEmpty()) {
+            filtered = filtered.filter { perfume ->
+                _selectedGenders.value.contains(perfume.genere)
+            }
+        }
+
         // Filtro famiglia olfattiva
         if (_selectedFamilies.value.isNotEmpty()) {
             filtered = filtered.filter { perfume ->
@@ -198,5 +205,48 @@ class CatalogViewModel(
                 _selectedGenders.value.isNotEmpty() ||
                 _selectedFamilies.value.isNotEmpty() ||
                 _selectedNotes.value.isNotEmpty()
+    }
+
+    // === PROFUMI CONSIGLIATI ===
+
+    /**
+     * Restituisce i profumi consigliati in base al profilo olfattivo dell'utente.
+     * Calcola un punteggio di affinità per ogni profumo basandosi sulle note in comune.
+     */
+    fun getRecommendedPerfumes(profiloOlfattivo: ProfiloOlfattivo?): List<Perfume> {
+        if (profiloOlfattivo == null) return emptyList()
+
+        // Raccogli tutte le note preferite dell'utente (lowercase per confronto)
+        val userNotes = (
+                profiloOlfattivo.noteFloreali +
+                        profiloOlfattivo.noteFruttate +
+                        profiloOlfattivo.noteSpeziate +
+                        profiloOlfattivo.noteGourmand +
+                        profiloOlfattivo.noteLegnose
+                ).map { it.lowercase() }
+
+        if (userNotes.isEmpty()) return emptyList()
+
+        // Calcola punteggio per ogni profumo
+        return _perfumes.value
+            .map { perfume ->
+                val perfumeNotes = (
+                        perfume.noteOlfattive.noteDiTesta +
+                                perfume.noteOlfattive.noteDiCuore +
+                                perfume.noteOlfattive.noteDiFondo
+                        ).map { it.lowercase() }
+
+                // Conta le note in comune
+                val matchingNotes = perfumeNotes.count { note ->
+                    userNotes.any { userNote ->
+                        note.contains(userNote) || userNote.contains(note)
+                    }
+                }
+
+                Pair(perfume, matchingNotes)
+            }
+            .filter { it.second > 0 }  // Solo profumi con almeno una nota in comune
+            .sortedByDescending { it.second }  // Ordina per affinità
+            .map { it.first }
     }
 }

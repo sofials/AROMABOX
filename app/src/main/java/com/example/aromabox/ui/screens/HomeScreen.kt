@@ -9,6 +9,7 @@ import java.util.Locale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,7 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.theme.*
-import com.example.aromabox.ui.viewmodels.UserViewModel  // ✅ Import corretto
+import com.example.aromabox.ui.viewmodels.UserViewModel
 
 private val SaldoCardBg = Color(0xFF737083)
 private val SaldoTextSecondary = Color(0xFFFFFFFF).copy(alpha = 0.72f)
@@ -38,13 +39,11 @@ private val PageBackground = Color(0xFFF2F2F2)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    navController: NavController,  // ✅ NavController invece di NavHostController
+    navController: NavController,
     userViewModel: UserViewModel = viewModel()
 ) {
-    // ✅ Osserva il nuovo StateFlow
     val currentUser by userViewModel.currentUser.collectAsState()
 
-    // ✅ Forza refresh ogni volta che si torna alla home
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
     }
@@ -73,16 +72,21 @@ fun HomeScreen(
         ) {
             // Card Saldo
             SaldoCard(
-                saldo = currentUser?.wallet ?: 0.0,  // ✅ wallet invece di borsellino
-                onRicaricaClick = { /* TODO: Ricarica */ }
+                saldo = currentUser?.wallet ?: 0.0,
+                onRicaricaClick = { navController.navigate(Screen.Recharge.route) }  // ✅ Navigazione
             )
 
-            // ✅ Controlla se il quiz è completo
+            // Controlla se il quiz è completo
             val hasCompletedQuiz = currentUser?.profiloOlfattivo != null
 
             if (!hasCompletedQuiz) {
                 QuizCard(
                     onClick = { navController.navigate(Screen.Quiz.route) }
+                )
+            } else {
+                // Card Profumi Consigliati (dopo quiz completato)
+                RecommendedCard(
+                    onClick = { navController.navigate(Screen.Recommended.route) }
                 )
             }
         }
@@ -224,9 +228,73 @@ fun QuizCard(onClick: () -> Unit) {
 }
 
 @Composable
+fun RecommendedCard(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = QuizCardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(25.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Profumi consigliati",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    lineHeight = 28.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Scopri le fragranze\nadatte a te",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color(0xFF1E1E1E),
+                    lineHeight = 20.sp
+                )
+            }
+
+            // Icona/immagine
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF1E1E1E),
+                                Color(0xFFC4B9FF)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.quiz_perfumes),
+                    contentDescription = "Profumi",
+                    modifier = Modifier.size(80.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun BottomNavigationBar(
     selectedScreen: Screen,
-    navController: NavController  // ✅ NavController invece di NavHostController
+    navController: NavController
 ) {
     Box {
         NavigationBar(
@@ -239,11 +307,11 @@ fun BottomNavigationBar(
                     Icon(
                         imageVector = if (selectedScreen == Screen.Distributori)
                             Icons.Filled.LocationOn else Icons.Outlined.LocationOn,
-                        contentDescription = "Distributori"
+                        contentDescription = "Mappa"
                     )
                 },
-                label = { Text("Distributori", fontSize = 12.sp) },
-                selected = selectedScreen == Screen.Distributori,  // ✅ Distributori non Distributors
+                label = { Text("Mappa", fontSize = 12.sp) },
+                selected = selectedScreen == Screen.Distributori,
                 onClick = {
                     if (selectedScreen != Screen.Distributori) {
                         navController.navigate(Screen.Distributori.route) {

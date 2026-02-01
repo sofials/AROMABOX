@@ -2,6 +2,8 @@ package com.example.aromabox.ui.screens
 
 import com.example.aromabox.ui.components.CommonTopBar
 import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,18 +37,19 @@ import com.example.aromabox.R
 import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.viewmodels.UserViewModel
+import kotlinx.coroutines.delay
 
 // Colori Quiz
 private val QuizProgressBg = Color(0xFFEEEEEE)
 private val QuizProgressFill = Color(0xFF8378BF)
 private val QuizAccent = Color(0xFF9A91C9)
+private val CheckBgColor = Color(0xFFEDE9FF)
 
 data class NotaOlfattiva(
     val nome: String,
-    val imageRes: Int  // ✅ Cambiato da emoji a imageRes
+    val imageRes: Int
 )
 
-// ✅ Sostituisci R.drawable.placeholder con i nomi reali delle tue immagini
 val noteFloreali = listOf(
     NotaOlfattiva("Tuberosa", R.drawable.tuberosa),
     NotaOlfattiva("Gelsomino", R.drawable.gelsomino),
@@ -158,6 +161,9 @@ fun QuizScreen(
     var currentStep by remember { mutableStateOf(0) }
     var selectedNotes by remember { mutableStateOf(mapOf<Int, List<String>>()) }
 
+    // Stato per l'overlay di completamento
+    var showCompletedOverlay by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
     }
@@ -165,166 +171,232 @@ fun QuizScreen(
     val currentQuizStep = quizSteps[currentStep]
     val progress = (currentStep + 1) / quizSteps.size.toFloat()
 
-    Scaffold(
-        topBar = {
-            CommonTopBar(
-                onMenuClick = { /* TODO: Menu */ }
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                selectedScreen = Screen.Quiz,
-                navController = navController
-            )
-        },
-        floatingActionButton = {
-            // Box per posizionare i FAB in modo simmetrico
-            Box(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Freccia indietro - A SINISTRA
-                if (currentStep > 0) {
+    // Box che contiene tutto + overlay
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                CommonTopBar(
+                    onMenuClick = { /* TODO: Menu */ }
+                )
+            },
+            bottomBar = {
+                BottomNavigationBar(
+                    selectedScreen = Screen.Quiz,
+                    navController = navController
+                )
+            },
+            floatingActionButton = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Freccia indietro - A SINISTRA
+                    if (currentStep > 0) {
+                        FloatingActionButton(
+                            onClick = { currentStep-- },
+                            containerColor = Color.Gray.copy(alpha = 0.7f),
+                            contentColor = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = "Indietro",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.size(56.dp))
+                    }
+
+                    // Freccia avanti / Check - A DESTRA
                     FloatingActionButton(
                         onClick = {
-                            currentStep--
+                            val currentSelections = selectedNotes[currentStep] ?: emptyList()
+                            if (currentSelections.isNotEmpty()) {
+                                if (currentStep < quizSteps.size - 1) {
+                                    currentStep++
+                                } else {
+                                    // Quiz completato!
+                                    val profilo = ProfiloOlfattivo(
+                                        noteFloreali = selectedNotes[0] ?: emptyList(),
+                                        noteFruttate = selectedNotes[1] ?: emptyList(),
+                                        noteSpeziate = selectedNotes[2] ?: emptyList(),
+                                        noteGourmand = selectedNotes[3] ?: emptyList(),
+                                        noteLegnose = selectedNotes[4] ?: emptyList()
+                                    )
+                                    userViewModel.updateProfiloOlfattivo(profilo)
+                                    showCompletedOverlay = true
+                                }
+                            } else {
+                                Toast.makeText(context, "Seleziona almeno una nota", Toast.LENGTH_SHORT).show()
+                            }
                         },
-                        containerColor = Color.Gray.copy(alpha = 0.7f),  // ✅ Semi-trasparente
+                        containerColor = QuizAccent.copy(alpha = 0.85f),
                         contentColor = Color.White,
                         shape = CircleShape,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .align(Alignment.CenterStart)
-                            .offset(x = 16.dp)
+                        modifier = Modifier.size(56.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = "Indietro",
+                            imageVector = if (currentStep == quizSteps.size - 1)
+                                Icons.Default.Check
+                            else
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = if (currentStep == quizSteps.size - 1) "Completa" else "Avanti",
                             tint = Color.White,
                             modifier = Modifier.size(32.dp)
                         )
                     }
                 }
-
-                // Freccia avanti / Check - A DESTRA
-                FloatingActionButton(
-                    onClick = {
-                        val currentSelections = selectedNotes[currentStep] ?: emptyList()
-                        if (currentSelections.isNotEmpty()) {
-                            if (currentStep < quizSteps.size - 1) {
-                                currentStep++
-                            } else {
-                                val profilo = ProfiloOlfattivo(
-                                    noteFloreali = selectedNotes[0] ?: emptyList(),
-                                    noteFruttate = selectedNotes[1] ?: emptyList(),
-                                    noteSpeziate = selectedNotes[2] ?: emptyList(),
-                                    noteGourmand = selectedNotes[3] ?: emptyList(),
-                                    noteLegnose = selectedNotes[4] ?: emptyList()
-                                )
-                                userViewModel.updateProfiloOlfattivo(profilo)
-                                Toast.makeText(context, "Profilo olfattivo salvato!", Toast.LENGTH_SHORT).show()
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Quiz.route) { inclusive = true }
-                                }
-                            }
-                        } else {
-                            Toast.makeText(context, "Seleziona almeno una nota", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    containerColor = QuizAccent.copy(alpha = 0.85f),  // ✅ Semi-trasparente
-                    contentColor = Color.White,
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .align(Alignment.CenterEnd)
-                        .offset(x = (-16).dp)
-                ) {
-                    Icon(
-                        imageVector = if (currentStep == quizSteps.size - 1)
-                            Icons.Default.Check
-                        else
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = if (currentStep == quizSteps.size - 1) "Completa" else "Avanti",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-        },
-        floatingActionButtonPosition = FabPosition.End
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color.White)
-        ) {
+            },
+            floatingActionButtonPosition = FabPosition.Center
+        ) { paddingValues ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp)
+                    .padding(paddingValues)
+                    .background(Color.White)
             ) {
-                Text(
-                    text = currentQuizStep.titolo,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Black,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                // Progress bar
-                Box(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(QuizProgressBg)
+                        .fillMaxSize()
+                        .padding(20.dp)
                 ) {
+                    Text(
+                        text = currentQuizStep.titolo,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.Black,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    // Progress bar
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(progress)
-                            .fillMaxHeight()
+                            .fillMaxWidth()
+                            .height(3.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(QuizProgressFill)
+                            .background(QuizProgressBg)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(QuizProgressFill)
+                        )
+                    }
+
+                    // Contatore selezioni
+                    val currentSelections = selectedNotes[currentStep] ?: emptyList()
+                    Text(
+                        text = "${currentSelections.size} selezionate",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+                    )
+
+                    // Griglia note
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(currentQuizStep.note) { nota ->
+                            val currentList = selectedNotes[currentStep] ?: emptyList()
+                            val isSelected = currentList.contains(nota.nome)
+
+                            NotaItem(
+                                nota = nota,
+                                isSelected = isSelected,
+                                onClick = {
+                                    val updatedList = if (isSelected) {
+                                        currentList - nota.nome
+                                    } else {
+                                        currentList + nota.nome
+                                    }
+                                    selectedNotes = selectedNotes.toMutableMap().apply {
+                                        put(currentStep, updatedList)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Overlay Quiz Completato
+        QuizCompletedOverlay(
+            visible = showCompletedOverlay,
+            onDismiss = {
+                showCompletedOverlay = false
+                navController.navigate(Screen.Recommended.route) {
+                    popUpTo(Screen.Quiz.route) { inclusive = true }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun QuizCompletedOverlay(
+    visible: Boolean,
+    onDismiss: () -> Unit
+) {
+    // Auto-dismiss dopo 2 secondi
+    LaunchedEffect(visible) {
+        if (visible) {
+            delay(2000)
+            onDismiss()
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(300)),
+        exit = fadeOut(animationSpec = tween(300))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Cerchio con check
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(CheckBgColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = "Completato",
+                        tint = QuizAccent,
+                        modifier = Modifier.size(50.dp)
                     )
                 }
 
-                // Contatore selezioni
-                val currentSelections = selectedNotes[currentStep] ?: emptyList()
+                Spacer(modifier = Modifier.height(20.dp))
+
                 Text(
-                    text = "${currentSelections.size} selezionate",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+                    text = "Quiz completato!",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Black
                 )
-
-                // Griglia note
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(currentQuizStep.note) { nota ->
-                        val currentList = selectedNotes[currentStep] ?: emptyList()
-                        val isSelected = currentList.contains(nota.nome)
-
-                        NotaItem(
-                            nota = nota,
-                            isSelected = isSelected,
-                            onClick = {
-                                val updatedList = if (isSelected) {
-                                    currentList - nota.nome
-                                } else {
-                                    currentList + nota.nome
-                                }
-                                selectedNotes = selectedNotes.toMutableMap().apply {
-                                    put(currentStep, updatedList)
-                                }
-                            }
-                        )
-                    }
-                }
             }
         }
     }
@@ -346,14 +418,12 @@ fun NotaItem(
             modifier = Modifier.size(72.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Cerchio con immagine
             Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
                     .background(Color.White)
                     .then(
-                        // ✅ Bordo SOLO se selezionato
                         if (isSelected) {
                             Modifier.border(
                                 width = 3.dp,
@@ -366,7 +436,6 @@ fun NotaItem(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // Immagine della fragranza
                 Image(
                     painter = painterResource(id = nota.imageRes),
                     contentDescription = nota.nome,
@@ -377,7 +446,6 @@ fun NotaItem(
                 )
             }
 
-            // Checkmark quando selezionato
             if (isSelected) {
                 Box(
                     modifier = Modifier

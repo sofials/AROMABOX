@@ -26,24 +26,57 @@ class UserViewModel(
 
     private val auth = FirebaseAuth.getInstance()
 
-    init {
-        loadCurrentUser()
-    }
+    private var isAuthInitialized = false
 
-    fun loadCurrentUser() {
-        viewModelScope.launch {
-            _isLoading.value = true
+    private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+        val user = firebaseAuth.currentUser
 
-            val uid = auth.currentUser?.uid
-            if (uid != null) {
-                repository.getUserById(uid).collect { user ->
-                    _currentUser.value = user
-                    _isLoading.value = false
-                }
+        if (!isAuthInitialized) {
+            isAuthInitialized = true
+
+            if (user != null) {
+                loadUserData(user.uid)
             } else {
                 _currentUser.value = null
                 _isLoading.value = false
             }
+        } else {
+            if (user != null) {
+                loadUserData(user.uid)
+            } else {
+                _currentUser.value = null
+                _isLoading.value = false
+            }
+        }
+    }
+
+    init {
+        auth.addAuthStateListener(authStateListener)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        auth.removeAuthStateListener(authStateListener)
+    }
+
+    private fun loadUserData(uid: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+
+            repository.getUserById(uid).collect { user ->
+                _currentUser.value = user
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadCurrentUser() {
+        val uid = auth.currentUser?.uid
+        if (uid != null) {
+            loadUserData(uid)
+        } else {
+            _currentUser.value = null
+            _isLoading.value = false
         }
     }
 
@@ -73,19 +106,16 @@ class UserViewModel(
         }
     }
 
-    // ✅ FIX: toggleFavorite corretto
     fun toggleFavorite(perfumeId: String) {
         viewModelScope.launch {
             val userId = getCurrentUserId()
 
-            // Controllo più esplicito
             if (userId.isNullOrBlank()) {
                 _errorMessage.value = "Utente non autenticato"
                 return@launch
             }
 
             try {
-                // ✅ Leggi i preferiti FRESCHI dal server prima di modificare
                 val freshUser = repository.getUserByIdOnce(userId)
                 val currentFavorites = freshUser?.preferiti?.toMutableList() ?: mutableListOf()
 
@@ -95,10 +125,7 @@ class UserViewModel(
                     currentFavorites.add(perfumeId)
                 }
 
-                // ✅ Salva su Firebase
                 repository.updateFavorites(userId, currentFavorites)
-
-                // ✅ Aggiorna lo stato locale IMMEDIATAMENTE per UI reattiva
                 _currentUser.value = _currentUser.value?.copy(preferiti = currentFavorites)
 
             } catch (e: Exception) {
@@ -120,13 +147,41 @@ class UserViewModel(
         }
     }
 
+    // ✅ CORRETTO: Aggiorna wallet e stato locale immediatamente
+    fun rechargeWallet(amount: Double, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            val userId = getCurrentUserId() ?: run {
+                onError("Utente non autenticato")
+                return@launch
+            }
+
+            try {
+                val currentWallet = _currentUser.value?.wallet ?: 0.0
+                val newWallet = currentWallet + amount
+
+                // Aggiorna su Firebase
+                repository.updateWallet(userId, newWallet)
+
+                // Aggiorna stato locale immediatamente
+                _currentUser.value = _currentUser.value?.copy(wallet = newWallet)
+
+                onSuccess()
+            } catch (e: Exception) {
+                onError("Errore nella ricarica: ${e.message}")
+            }
+        }
+    }
+
+    // Mantieni anche il vecchio metodo per compatibilità
     fun updateWallet(amount: Double) {
         viewModelScope.launch {
             val userId = getCurrentUserId() ?: return@launch
 
             try {
                 val currentWallet = _currentUser.value?.wallet ?: 0.0
-                repository.updateWallet(userId, currentWallet + amount)
+                val newWallet = currentWallet + amount
+                repository.updateWallet(userId, newWallet)
+                _currentUser.value = _currentUser.value?.copy(wallet = newWallet)
             } catch (e: Exception) {
                 _errorMessage.value = "Errore nell'aggiornare il portafoglio: ${e.message}"
             }
@@ -147,6 +202,5 @@ class UserViewModel(
 
     fun logout() {
         auth.signOut()
-        _currentUser.value = null
     }
 }

@@ -20,9 +20,7 @@ class AuthViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    // ✅ FIX: Repository creato internamente, non come parametro del costruttore
     private val userRepository = UserRepository()
-
     private val auth = FirebaseAuth.getInstance()
     private val oneTapClient = Identity.getSignInClient(application)
 
@@ -52,7 +50,7 @@ class AuthViewModel(
                     val newUser = User(
                         uid = firebaseUser.uid,
                         email = email,
-                        nome = "",  // Verrà compilato in CompleteProfileScreen
+                        nome = "",
                         cognome = "",
                         photoUrl = null,
                         isConnected = false,
@@ -127,13 +125,25 @@ class AuthViewModel(
                         val existingUser = userRepository.getUserByIdOnce(firebaseUser.uid)
 
                         if (existingUser == null) {
-                            // Nuovo utente - Crea profilo
-                            val displayNameParts = firebaseUser.displayName?.split(" ") ?: listOf("", "")
+                            // ✅ Nuovo utente - Crea profilo con gestione cognomi composti
+                            val displayName = firebaseUser.displayName ?: ""
+                            val firstSpaceIndex = displayName.indexOf(" ")
+                            val nome: String
+                            val cognome: String
+
+                            if (firstSpaceIndex > 0) {
+                                nome = displayName.substring(0, firstSpaceIndex)
+                                cognome = displayName.substring(firstSpaceIndex + 1)  // Tutto dopo il primo spazio
+                            } else {
+                                nome = displayName
+                                cognome = ""
+                            }
+
                             val newUser = User(
                                 uid = firebaseUser.uid,
                                 email = firebaseUser.email ?: "",
-                                nome = displayNameParts.firstOrNull() ?: "",
-                                cognome = displayNameParts.getOrNull(1) ?: "",
+                                nome = nome,
+                                cognome = cognome,
                                 photoUrl = firebaseUser.photoUrl?.toString(),
                                 isConnected = false,
                                 wallet = 0.0
