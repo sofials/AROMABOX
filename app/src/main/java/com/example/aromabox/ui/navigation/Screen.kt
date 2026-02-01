@@ -10,7 +10,7 @@ sealed class Screen(val route: String) {
     object Home : Screen("home")
     object Catalog : Screen("catalog")
     object Recommended : Screen("recommended")
-    object Recharge : Screen("recharge")  // ✅ NUOVA
+    object Recharge : Screen("recharge")
 
     // Filtri
     object Filters : Screen("filters")
@@ -20,6 +20,7 @@ sealed class Screen(val route: String) {
     object FilterGender : Screen("filter_gender")
     object FilterFamily : Screen("filter_family")
     object FilterNotes : Screen("filter_notes")
+    object FilterDistributor : Screen("filter_distributor")
 
     object Distributori : Screen("distributori")
     object Storico : Screen("storico")

@@ -26,6 +26,7 @@ private val HeaderBackground = Color(0xFFC4B9FF).copy(alpha = 0.40f)
 private val NeutralColor = Color(0xFF737083)
 private val TextColor = Color(0xFF1E1E1E)
 private val DividerColor = Color(0xFF737083)
+private val ActiveFilterColor = Color(0xFF8378BF)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +35,7 @@ fun FilterScreen(
     catalogViewModel: CatalogViewModel
 ) {
     val productCount = catalogViewModel.getFilteredPerfumes().size
+    val selectedDistributor by catalogViewModel.selectedDistributor.collectAsState()
 
     Scaffold(
         containerColor = PageBackground
@@ -55,6 +57,13 @@ fun FilterScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
+                // ✅ NUOVO: Filtro Distributore (primo nella lista)
+                FilterOptionRow(
+                    title = "DISTRIBUTORE",
+                    subtitle = selectedDistributor?.nome,
+                    onClick = { navController.navigate(Screen.FilterDistributor.route) }
+                )
+
                 FilterOptionRow(
                     title = "ORDINA PER",
                     onClick = { navController.navigate(Screen.FilterSort.route) }
@@ -177,6 +186,7 @@ fun FilterHeader(
 @Composable
 fun FilterOptionRow(
     title: String,
+    subtitle: String? = null,
     onClick: () -> Unit
 ) {
     Column {
@@ -193,17 +203,29 @@ fun FilterOptionRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NeutralColor
-                )
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NeutralColor
+                    )
+
+                    // ✅ Mostra il valore selezionato se presente
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = ActiveFilterColor
+                        )
+                    }
+                }
 
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "Apri",
-                    tint = NeutralColor,
+                    tint = if (subtitle != null) ActiveFilterColor else NeutralColor,
                     modifier = Modifier.size(20.dp)
                 )
             }

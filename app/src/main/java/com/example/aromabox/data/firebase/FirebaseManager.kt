@@ -15,12 +15,12 @@ object FirebaseManager {
     // Riferimenti alle collezioni
     private val usersRef = database.child("users")
     private val perfumesRef = database.child("profumi")
-    private val machinesRef = database.child("macchinette")
+    private val distributorsRef = database.child("distributors")  // ✅ Cambiato da "macchinette"
     private val ordersRef = database.child("erogazioni")
 
     // ========== USER OPERATIONS ==========
 
-    suspend fun getUserById(uid: String): User? {  // ✅ Cambiato da userId a uid
+    suspend fun getUserById(uid: String): User? {
         return try {
             val snapshot = usersRef.child(uid).get().await()
             snapshot.getValue(User::class.java)
@@ -32,7 +32,7 @@ object FirebaseManager {
 
     suspend fun createUser(user: User): Boolean {
         return try {
-            usersRef.child(user.uid).setValue(user).await()  // ✅ user.uid invece di user.userId
+            usersRef.child(user.uid).setValue(user).await()
             Log.d(TAG, "User created: ${user.uid}")
             true
         } catch (e: Exception) {
@@ -43,7 +43,7 @@ object FirebaseManager {
 
     suspend fun updateUser(user: User): Boolean {
         return try {
-            usersRef.child(user.uid).setValue(user).await()  // ✅ user.uid
+            usersRef.child(user.uid).setValue(user).await()
             Log.d(TAG, "User updated: ${user.uid}")
             true
         } catch (e: Exception) {
@@ -52,7 +52,7 @@ object FirebaseManager {
         }
     }
 
-    suspend fun updateUserField(uid: String, field: String, value: Any): Boolean {  // ✅ uid
+    suspend fun updateUserField(uid: String, field: String, value: Any): Boolean {
         return try {
             usersRef.child(uid).child(field).setValue(value).await()
             Log.d(TAG, "User field updated: $field")
@@ -63,7 +63,7 @@ object FirebaseManager {
         }
     }
 
-    fun observeUser(uid: String): Flow<User?> = callbackFlow {  // ✅ uid
+    fun observeUser(uid: String): Flow<User?> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val user = snapshot.getValue(User::class.java)
@@ -105,39 +105,153 @@ object FirebaseManager {
         }
     }
 
-    suspend fun getPerfumesByMachine(machineId: String): List<Perfume> {
+    // ✅ Aggiornato per usare Distributor
+    suspend fun getPerfumesByDistributor(distributorId: String): List<Perfume> {
         return try {
-            val snapshot = perfumesRef
-                .orderByChild("macchinettaId")
-                .equalTo(machineId)
+            // Prima ottieni il distributore per vedere quali profumi ha in inventario
+            val distributor = getDistributorById(distributorId)
+            if (distributor != null) {
+                val perfumeIds = distributor.inventario.filter { it.value > 0 }.keys
+                val allPerfumes = getAllPerfumes()
+                allPerfumes.filter { perfumeIds.contains(it.id) }
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting perfumes by distributor", e)
+            emptyList()
+        }
+    }
+
+    // ========== DISTRIBUTOR OPERATIONS ==========
+
+    suspend fun getAllDistributors(): List<Distributor> {
+        return try {
+            val snapshot = distributorsRef.get().await()
+            snapshot.children.mapNotNull { it.getValue(Distributor::class.java) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting distributors", e)
+            emptyList()
+        }
+    }
+
+    suspend fun getDistributorById(distributorId: String): Distributor? {
+        return try {
+            val snapshot = distributorsRef.child(distributorId).get().await()
+            snapshot.getValue(Distributor::class.java)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting distributor", e)
+            null
+        }
+    }
+
+    fun observeDistributors(): Flow<List<Distributor>> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val distributors = snapshot.children.mapNotNull {
+                    it.getValue(Distributor::class.java)
+                }
+                trySend(distributors)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "Error observing distributors", error.toException())
+                close(error.toException())
+            }
+        }
+
+        distributorsRef.addValueEventListener(listener)
+
+        awaitClose {
+            distributorsRef.removeEventListener(listener)
+        }
+    }
+
+    fun observeDistributor(distributorId: String): Flow<Distributor?> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val distributor = snapshot.getValue(Distributor::class.java)
+                trySend(distributor)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "Error observing distributor", error.toException())
+                close(error.toException())
+            }
+        }
+
+        distributorsRef.child(distributorId).addValueEventListener(listener)
+
+        awaitClose {
+            distributorsRef.child(distributorId).removeEventListener(listener)
+        }
+    }
+
+    suspend fun updateDistributorInventory(
+        distributorId: String,
+        perfumeId: String,
+        newQuantity: Int
+    ): Boolean {
+        return try {
+            distributorsRef
+                .child(distributorId)
+                .child("inventario")
+                .child(perfumeId)
+                .setValue(newQuantity)
+                .await()
+            Log.d(TAG, "Distributor inventory updated: $distributorId - $perfumeId = $newQuantity")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating distributor inventory", e)
+            false
+        }
+    }
+
+    suspend fun decrementDistributorInventory(
+        distributorId: String,
+        perfumeId: String
+    ): Boolean {
+        return try {
+            val snapshot = distributorsRef
+                .child(distributorId)
+                .child("inventario")
+                .child(perfumeId)
                 .get()
                 .await()
-            snapshot.children.mapNotNull { it.getValue(Perfume::class.java) }
+
+            val currentQty = snapshot.getValue(Int::class.java) ?: 0
+            if (currentQty > 0) {
+                distributorsRef
+                    .child(distributorId)
+                    .child("inventario")
+                    .child(perfumeId)
+                    .setValue(currentQty - 1)
+                    .await()
+                Log.d(TAG, "Inventory decremented: $distributorId - $perfumeId = ${currentQty - 1}")
+                true
+            } else {
+                Log.w(TAG, "Cannot decrement: inventory is 0")
+                false
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting perfumes by machine", e)
-            emptyList()
+            Log.e(TAG, "Error decrementing inventory", e)
+            false
         }
     }
 
-    // ========== MACHINE OPERATIONS ==========
-
-    suspend fun getAllMachines(): List<Machine> {
+    suspend fun seedDistributors(distributors: List<Distributor>): Boolean {
         return try {
-            val snapshot = machinesRef.get().await()
-            snapshot.children.mapNotNull { it.getValue(Machine::class.java) }
+            val snapshot = distributorsRef.get().await()
+            if (!snapshot.exists() || snapshot.childrenCount == 0L) {
+                distributors.forEach { distributor ->
+                    distributorsRef.child(distributor.id).setValue(distributor).await()
+                }
+                Log.d(TAG, "Distributors seeded: ${distributors.size}")
+            }
+            true
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting machines", e)
-            emptyList()
-        }
-    }
-
-    suspend fun getMachineById(machineId: String): Machine? {
-        return try {
-            val snapshot = machinesRef.child(machineId).get().await()
-            snapshot.getValue(Machine::class.java)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting machine", e)
-            null
+            Log.e(TAG, "Error seeding distributors", e)
+            false
         }
     }
 
@@ -164,10 +278,10 @@ object FirebaseManager {
         }
     }
 
-    suspend fun getUserOrders(uid: String): List<Order> {  // ✅ uid
+    suspend fun getUserOrders(uid: String): List<Order> {
         return try {
             val snapshot = ordersRef
-                .orderByChild("uid")  // ✅ Assicurati che Order abbia uid, non userId
+                .orderByChild("uid")
                 .equalTo(uid)
                 .get()
                 .await()
@@ -189,6 +303,34 @@ object FirebaseManager {
         } catch (e: Exception) {
             Log.e(TAG, "Error updating order status", e)
             false
+        }
+    }
+
+    // ========== ACTIVE DISTRIBUTORS HELPER ==========
+
+    suspend fun getActiveDistributors(): List<Distributor> {
+        return try {
+            val snapshot = distributorsRef
+                .orderByChild("attivo")
+                .equalTo(true)
+                .get()
+                .await()
+            snapshot.children.mapNotNull { it.getValue(Distributor::class.java) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting active distributors", e)
+            emptyList()
+        }
+    }
+
+    suspend fun getDistributorsWithPerfume(perfumeId: String): List<Distributor> {
+        return try {
+            val allDistributors = getAllDistributors()
+            allDistributors.filter { distributor ->
+                distributor.attivo && distributor.getDisponibilita(perfumeId) > 0
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting distributors with perfume", e)
+            emptyList()
         }
     }
 }

@@ -313,12 +313,11 @@ fun BottomNavigationBar(
                 label = { Text("Mappa", fontSize = 12.sp) },
                 selected = selectedScreen == Screen.Distributori,
                 onClick = {
-                    if (selectedScreen != Screen.Distributori) {
-                        navController.navigate(Screen.Distributori.route) {
-                            popUpTo(Screen.Home.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                    // ✅ Rimosso il check - naviga sempre
+                    navController.navigate(Screen.Distributori.route) {
+                        popUpTo(Screen.Home.route) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -340,12 +339,11 @@ fun BottomNavigationBar(
                 label = { Text("Storico", fontSize = 12.sp) },
                 selected = selectedScreen == Screen.Storico,
                 onClick = {
-                    if (selectedScreen != Screen.Storico) {
-                        navController.navigate(Screen.Storico.route) {
-                            popUpTo(Screen.Home.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                    // ✅ Rimosso il check - naviga sempre
+                    navController.navigate(Screen.Storico.route) {
+                        popUpTo(Screen.Home.route) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -356,7 +354,7 @@ fun BottomNavigationBar(
                     indicatorColor = Secondary
                 )
             )
-            // Spazio vuoto per il bottone centrale
+
             Spacer(modifier = Modifier.weight(1f))
 
             NavigationBarItem(
@@ -370,12 +368,11 @@ fun BottomNavigationBar(
                 label = { Text("Catalogo", fontSize = 12.sp) },
                 selected = selectedScreen == Screen.Catalog,
                 onClick = {
-                    if (selectedScreen != Screen.Catalog) {
-                        navController.navigate(Screen.Catalog.route) {
-                            popUpTo(Screen.Home.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                    // ✅ Rimosso il check - naviga sempre al catalogo normale
+                    navController.navigate(Screen.Catalog.route) {
+                        popUpTo(Screen.Home.route) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -397,12 +394,11 @@ fun BottomNavigationBar(
                 label = { Text("Profilo", fontSize = 12.sp) },
                 selected = selectedScreen == Screen.Profile,
                 onClick = {
-                    if (selectedScreen != Screen.Profile) {
-                        navController.navigate(Screen.Profile.route) {
-                            popUpTo(Screen.Home.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                    // ✅ Rimosso il check - naviga sempre
+                    navController.navigate(Screen.Profile.route) {
+                        popUpTo(Screen.Home.route) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -418,11 +414,10 @@ fun BottomNavigationBar(
         // Bottone Home centrale flottante
         FloatingActionButton(
             onClick = {
-                if (selectedScreen != Screen.Home) {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
-                        launchSingleTop = true
-                    }
+                // ✅ Rimosso il check - naviga sempre
+                navController.navigate(Screen.Home.route) {
+                    popUpTo(Screen.Home.route) { inclusive = true }
+                    launchSingleTop = true
                 }
             },
             modifier = Modifier

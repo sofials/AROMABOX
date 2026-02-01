@@ -24,6 +24,7 @@ import com.example.aromabox.ui.theme.AROMABOXTheme
 import com.example.aromabox.ui.theme.LoginGradientStart
 import com.example.aromabox.ui.theme.LoginGradientEnd
 import com.example.aromabox.ui.viewmodels.CatalogViewModel
+import com.example.aromabox.ui.viewmodels.DistributorViewModel
 import com.example.aromabox.ui.viewmodels.UserViewModel
 
 class MainActivity : ComponentActivity() {
@@ -50,15 +51,14 @@ class MainActivity : ComponentActivity() {
 fun AromaBoxApp(userViewModel: UserViewModel) {
     val navController = rememberNavController()
     val catalogViewModel: CatalogViewModel = viewModel()
+    val distributorViewModel: DistributorViewModel = viewModel()
 
     val currentUser by userViewModel.currentUser.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
 
-    // Stato per tracciare se abbiamo già determinato lo stato iniziale
     var isInitialized by remember { mutableStateOf(false) }
     var startDestination by remember { mutableStateOf<String?>(null) }
 
-    // Determina la startDestination solo quando il caricamento è completo
     LaunchedEffect(isLoading) {
         if (!isLoading && !isInitialized) {
             startDestination = when {
@@ -71,13 +71,11 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
         }
     }
 
-    // Mostra loading finché non siamo inizializzati
     if (!isInitialized || startDestination == null) {
         LoadingScreen()
         return
     }
 
-    // Gestisci logout (utente diventa null dopo l'inizializzazione)
     LaunchedEffect(currentUser) {
         if (isInitialized && currentUser == null && !isLoading) {
             navController.navigate(Screen.Login.route) {
@@ -105,15 +103,12 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
         composable(Screen.NotePreferite.route) {
             NotePreferiteScreen(navController = navController, userViewModel = userViewModel)
         }
-        composable(Screen.Recharge.route) {
-            RechargeScreen(
-                navController = navController,
-                userViewModel = userViewModel
-            )
+
+        composable(Screen.Home.route) {
+            HomeScreen(navController = navController, userViewModel = userViewModel)
         }
 
-        composable(Screen.Home.route) { HomeScreen(navController = navController) }
-
+        // ✅ Catalogo - NON resetta più il filtro automaticamente
         composable(Screen.Catalog.route) {
             CatalogScreen(
                 navController = navController,
@@ -128,6 +123,14 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
                 navController = navController,
                 userViewModel = userViewModel,
                 catalogViewModel = catalogViewModel
+            )
+        }
+
+        // Ricarica wallet
+        composable(Screen.Recharge.route) {
+            RechargeScreen(
+                navController = navController,
+                userViewModel = userViewModel
             )
         }
 
@@ -159,15 +162,35 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
         composable(Screen.FilterNotes.route) {
             FilterNotesScreen(navController = navController, catalogViewModel = catalogViewModel)
         }
+
+        // Filtro Distributore
+        composable(Screen.FilterDistributor.route) {
+            FilterDistributorScreen(
+                navController = navController,
+                catalogViewModel = catalogViewModel,
+                distributorViewModel = distributorViewModel
+            )
+        }
         // === FINE FILTRI ===
 
-        composable(Screen.Distributori.route) { DistributoriScreen(navController = navController) }
-        composable(Screen.Storico.route) { StoricoScreen(navController = navController) }
+        // ✅ Distributori - ora passa anche catalogViewModel
+        composable(Screen.Distributori.route) {
+            DistributoriScreen(
+                navController = navController,
+                distributorViewModel = distributorViewModel,
+                catalogViewModel = catalogViewModel
+            )
+        }
+
+        composable(Screen.Storico.route) {
+            StoricoScreen(navController = navController)
+        }
 
         composable(Screen.Profile.route) {
             ProfileScreen(navController = navController, userViewModel = userViewModel)
         }
 
+        // Dettaglio profumo
         composable(Screen.PerfumeDetail.route) { backStackEntry ->
             val perfumeId = backStackEntry.arguments?.getString("perfumeId")
             if (perfumeId != null) {
@@ -175,7 +198,8 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
                     perfumeId = perfumeId,
                     navController = navController,
                     userViewModel = userViewModel,
-                    catalogViewModel = catalogViewModel
+                    catalogViewModel = catalogViewModel,
+                    distributorViewModel = distributorViewModel
                 )
             }
         }

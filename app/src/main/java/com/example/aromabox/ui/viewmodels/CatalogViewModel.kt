@@ -2,6 +2,7 @@ package com.example.aromabox.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.aromabox.data.model.Distributor
 import com.example.aromabox.data.model.Perfume
 import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.data.repository.PerfumeRepository
@@ -33,28 +34,32 @@ class CatalogViewModel(
     private val _selectedSort = MutableStateFlow(SortOption.NESSUNO)
     val selectedSort: StateFlow<SortOption> = _selectedSort.asStateFlow()
 
-    // Filtro prezzo (range min-max)
+    // Filtro prezzo
     private val _minPriceFilter = MutableStateFlow(1f)
     val minPriceFilter: StateFlow<Float> = _minPriceFilter.asStateFlow()
 
     private val _maxPriceFilter = MutableStateFlow(4f)
     val maxPriceFilter: StateFlow<Float> = _maxPriceFilter.asStateFlow()
 
-    // Filtro marche (selezione multipla)
+    // Filtro marche
     private val _selectedBrands = MutableStateFlow<Set<String>>(emptySet())
     val selectedBrands: StateFlow<Set<String>> = _selectedBrands.asStateFlow()
 
-    // Filtro genere (selezione multipla)
+    // Filtro genere
     private val _selectedGenders = MutableStateFlow<Set<String>>(emptySet())
     val selectedGenders: StateFlow<Set<String>> = _selectedGenders.asStateFlow()
 
-    // Filtro famiglia olfattiva (selezione multipla)
+    // Filtro famiglia olfattiva
     private val _selectedFamilies = MutableStateFlow<Set<String>>(emptySet())
     val selectedFamilies: StateFlow<Set<String>> = _selectedFamilies.asStateFlow()
 
-    // Filtro note aromatiche (selezione multipla)
+    // Filtro note aromatiche
     private val _selectedNotes = MutableStateFlow<Set<String>>(emptySet())
     val selectedNotes: StateFlow<Set<String>> = _selectedNotes.asStateFlow()
+
+    // ✅ NUOVO: Filtro distributore
+    private val _selectedDistributor = MutableStateFlow<Distributor?>(null)
+    val selectedDistributor: StateFlow<Distributor?> = _selectedDistributor.asStateFlow()
 
     init {
         seedAndLoadPerfumes()
@@ -102,6 +107,11 @@ class CatalogViewModel(
         _selectedNotes.value = notes
     }
 
+    // ✅ NUOVO: Setter per filtro distributore
+    fun setSelectedDistributor(distributor: Distributor?) {
+        _selectedDistributor.value = distributor
+    }
+
     fun clearFilters() {
         _selectedCategory.value = "Tutti"
         _selectedSort.value = SortOption.NESSUNO
@@ -111,6 +121,7 @@ class CatalogViewModel(
         _selectedGenders.value = emptySet()
         _selectedFamilies.value = emptySet()
         _selectedNotes.value = emptySet()
+        _selectedDistributor.value = null
     }
 
     // === GETTERS PER OPZIONI DISPONIBILI ===
@@ -138,6 +149,17 @@ class CatalogViewModel(
 
     fun getFilteredPerfumes(): List<Perfume> {
         var filtered = _perfumes.value
+
+        // ✅ Filtro distributore (mostra solo profumi disponibili in quel distributore)
+        val distributor = _selectedDistributor.value
+        if (distributor != null) {
+            val availablePerfumeIds = distributor.inventario
+                .filter { it.value > 0 }
+                .keys
+            filtered = filtered.filter { perfume ->
+                availablePerfumeIds.contains(perfume.id)
+            }
+        }
 
         // Filtro categoria
         if (_selectedCategory.value != "Tutti") {
@@ -209,14 +231,9 @@ class CatalogViewModel(
 
     // === PROFUMI CONSIGLIATI ===
 
-    /**
-     * Restituisce i profumi consigliati in base al profilo olfattivo dell'utente.
-     * Calcola un punteggio di affinità per ogni profumo basandosi sulle note in comune.
-     */
     fun getRecommendedPerfumes(profiloOlfattivo: ProfiloOlfattivo?): List<Perfume> {
         if (profiloOlfattivo == null) return emptyList()
 
-        // Raccogli tutte le note preferite dell'utente (lowercase per confronto)
         val userNotes = (
                 profiloOlfattivo.noteFloreali +
                         profiloOlfattivo.noteFruttate +
@@ -227,7 +244,6 @@ class CatalogViewModel(
 
         if (userNotes.isEmpty()) return emptyList()
 
-        // Calcola punteggio per ogni profumo
         return _perfumes.value
             .map { perfume ->
                 val perfumeNotes = (
@@ -236,7 +252,6 @@ class CatalogViewModel(
                                 perfume.noteOlfattive.noteDiFondo
                         ).map { it.lowercase() }
 
-                // Conta le note in comune
                 val matchingNotes = perfumeNotes.count { note ->
                     userNotes.any { userNote ->
                         note.contains(userNote) || userNote.contains(note)
@@ -245,8 +260,8 @@ class CatalogViewModel(
 
                 Pair(perfume, matchingNotes)
             }
-            .filter { it.second > 0 }  // Solo profumi con almeno una nota in comune
-            .sortedByDescending { it.second }  // Ordina per affinità
+            .filter { it.second > 0 }
+            .sortedByDescending { it.second }
             .map { it.first }
     }
 }
