@@ -2,6 +2,7 @@ package com.example.aromabox.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.aromabox.data.model.Perfume
 import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.data.model.User
 import com.example.aromabox.data.repository.UserRepository
@@ -147,7 +148,52 @@ class UserViewModel(
         }
     }
 
-    // ✅ CORRETTO: Aggiorna wallet e stato locale immediatamente
+    /**
+     * Crea un nuovo ordine per l'utente.
+     * Genera automaticamente un PIN a 6 cifre per il ritiro.
+     *
+     * @param perfume Il profumo acquistato
+     * @param distributorId L'ID del distributore selezionato
+     * @param distributorName Il nome del distributore
+     * @param onSuccess Callback con il PIN generato
+     * @param onError Callback in caso di errore
+     */
+    fun createOrder(
+        perfume: Perfume,
+        distributorId: String,
+        distributorName: String,
+        onSuccess: (pin: String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val userId = getCurrentUserId() ?: run {
+                onError("Utente non autenticato")
+                return@launch
+            }
+
+            try {
+                val result = repository.addOrder(
+                    userId = userId,
+                    perfume = perfume,
+                    distributorId = distributorId,
+                    distributorName = distributorName
+                )
+
+                result.fold(
+                    onSuccess = { order ->
+                        onSuccess(order.pin)
+                    },
+                    onFailure = { exception ->
+                        onError("Errore nella creazione dell'ordine: ${exception.message}")
+                    }
+                )
+            } catch (e: Exception) {
+                onError("Errore nella creazione dell'ordine: ${e.message}")
+            }
+        }
+    }
+
+    // ✅ Aggiorna wallet e stato locale immediatamente
     fun rechargeWallet(amount: Double, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             val userId = getCurrentUserId() ?: run {

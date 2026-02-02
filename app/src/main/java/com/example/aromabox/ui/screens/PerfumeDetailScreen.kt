@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,7 +47,6 @@ private val BackgroundColor = Color(0xFFF2F2F2)
 private val TextPrimary = Color(0xFF1E293B)
 private val TextSecondary = Color(0xFF6B7280)
 private val TextGray = Color(0xFF374151)
-private val AccentPink = Color(0xFFFB2879)
 private val NeutralColor = Color(0xFF737083)
 private val SuccessGreen = Color(0xFF22C55E)
 private val ErrorRed = Color(0xFFEF4444)
@@ -79,11 +77,15 @@ fun PerfumeDetailScreen(
     var selectedDistributorId by remember { mutableStateOf<String?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
     var showSuccessOverlay by remember { mutableStateOf(false) }
+    var generatedPin by remember { mutableStateOf("") }
 
     // Distributori attivi che hanno questo profumo disponibile
     val availableDistributors = distributors.filter { distributor ->
         distributor.attivo && distributor.getDisponibilita(perfumeId) > 0
     }
+
+    // Trova il distributore selezionato
+    val selectedDistributor = distributors.find { it.id == selectedDistributorId }
 
     if (perfume == null) {
         Box(
@@ -110,21 +112,37 @@ fun PerfumeDetailScreen(
                     isProcessing = isProcessing,
                     onAcquistaClick = {
                         val distributorId = selectedDistributorId
-                        if (distributorId != null) {
+                        val distributor = selectedDistributor
+                        if (distributorId != null && distributor != null) {
                             val userWallet = currentUser?.wallet ?: 0.0
                             if (userWallet >= perfume.prezzo) {
                                 isProcessing = true
-                                // Scala l'inventario
-                                distributorViewModel.decrementInventory(
+
+                                // 1. Crea l'ordine nel database
+                                userViewModel.createOrder(
+                                    perfume = perfume,
                                     distributorId = distributorId,
-                                    perfumeId = perfumeId,
-                                    onSuccess = {
-                                        // Scala il wallet
-                                        userViewModel.rechargeWallet(
-                                            amount = -perfume.prezzo,
+                                    distributorName = distributor.nome,
+                                    onSuccess = { pin ->
+                                        generatedPin = pin
+
+                                        // 2. Scala l'inventario
+                                        distributorViewModel.decrementInventory(
+                                            distributorId = distributorId,
+                                            perfumeId = perfumeId,
                                             onSuccess = {
-                                                isProcessing = false
-                                                showSuccessOverlay = true
+                                                // 3. Scala il wallet
+                                                userViewModel.rechargeWallet(
+                                                    amount = -perfume.prezzo,
+                                                    onSuccess = {
+                                                        isProcessing = false
+                                                        showSuccessOverlay = true
+                                                    },
+                                                    onError = { error ->
+                                                        isProcessing = false
+                                                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                                    }
+                                                )
                                             },
                                             onError = { error ->
                                                 isProcessing = false
@@ -214,45 +232,6 @@ fun PerfumeDetailScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Recensioni
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "4.5",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-
-                        repeat(5) { index ->
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = if (index < 4) Color(0xFFFFD700) else Color(0xFFE0E0E0),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        Text(
-                            text = "+12000",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = AccentPink
-                        )
-                        Text(
-                            text = " Recensioni",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = Color.Black
-                        )
-                    }
-
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Descrizione
@@ -266,7 +245,7 @@ fun PerfumeDetailScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // ✅ NUOVA SEZIONE: Selezione distributore
+                    // SEZIONE: Selezione distributore
                     Text(
                         text = "SELEZIONA DISTRIBUTORE",
                         fontSize = 13.sp,
@@ -377,6 +356,7 @@ fun PerfumeDetailScreen(
         PurchaseSuccessOverlay(
             visible = showSuccessOverlay,
             perfumeName = perfume.nome,
+            pin = generatedPin,
             onDismiss = {
                 showSuccessOverlay = false
                 navController.popBackStack()
@@ -468,11 +448,12 @@ fun DistributorSelectionRow(
 fun PurchaseSuccessOverlay(
     visible: Boolean,
     perfumeName: String,
+    pin: String,
     onDismiss: () -> Unit
 ) {
     LaunchedEffect(visible) {
         if (visible) {
-            delay(2500)
+            delay(4000) // Più tempo per vedere il PIN
             onDismiss()
         }
     }
@@ -526,10 +507,37 @@ fun PurchaseSuccessOverlay(
                     color = TextSecondary
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // PIN per il ritiro
+                Text(
+                    text = "Il tuo PIN per il ritiro:",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = TextSecondary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(PrimaryColor.copy(alpha = 0.1f))
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = pin,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryColor,
+                        letterSpacing = 4.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Ritira il prodotto al distributore selezionato",
+                    text = "Mostra questo PIN al distributore",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
                     color = TextSecondary
