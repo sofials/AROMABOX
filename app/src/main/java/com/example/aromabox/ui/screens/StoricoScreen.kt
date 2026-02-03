@@ -1,5 +1,6 @@
 package com.example.aromabox.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,7 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,6 +47,7 @@ private val CardBackgroundColor = Color(0xFFF7F6FA)
 private val TextPrimary = Color(0xFF1E1E1E)
 private val TextSecondary = Color(0xFF737083)
 private val TextBrand = Color(0xFF222222)
+private val PrimaryColor = Color(0xFF8378BF)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,8 +129,10 @@ fun StoricoScreen(
                     ) { order ->
                         OrderCard(
                             order = order,
+                            showPin = selectedTab == StoricoTab.DA_RITIRARE,
                             onClick = {
-                                // Naviga ai dettagli dell'ordine se necessario
+                                // Naviga ai dettagli del profumo
+                                navController.navigate(Screen.PerfumeDetail.createRoute(order.perfumeId))
                             }
                         )
                     }
@@ -242,96 +249,160 @@ private fun TabPill(
 @Composable
 private fun OrderCard(
     order: Order,
+    showPin: Boolean,
     onClick: () -> Unit
 ) {
-    Row(
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(89.dp)
-            .clip(RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .background(CardBackgroundColor)
             .clickable { onClick() }
     ) {
-        // Immagine profumo
-        Box(
+        // Riga principale: immagine + dettagli
+        Row(
             modifier = Modifier
-                .width(100.dp)
-                .fillMaxHeight()
-                .background(CardBackgroundColor)
-                .border(0.2.dp, TextSecondary)
+                .fillMaxWidth()
+                .height(100.dp)
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(getDrawableResource(order.perfumeImageUrl))
-                    .crossfade(true)
-                    .build(),
-                contentDescription = order.perfumeName,
-                contentScale = ContentScale.Fit,
+            // Immagine profumo
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
-            )
-        }
+                    .width(100.dp)
+                    .fillMaxHeight()
+                    .background(CardBackgroundColor)
+                    .border(0.2.dp, TextSecondary)
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(getDrawableResource(order.perfumeImageUrl))
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = order.perfumeName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp)
+                )
+            }
 
-        // Dettagli ordine
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(CardBackgroundColor)
-                .padding(16.dp)
-        ) {
+            // Dettagli ordine
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(12.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Brand e Nome
                 Column {
                     // Brand (uppercase, bold)
                     Text(
                         text = order.perfumeBrand.uppercase(),
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = TextBrand,
-                        lineHeight = 18.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     // Nome profumo
                     Text(
                         text = order.perfumeName,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
                         color = TextPrimary,
-                        letterSpacing = 0.5.sp,
-                        lineHeight = 23.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                // Data e Prezzo su righe separate per evitare troncamento
+                Column {
                     // Data
                     Text(
                         text = order.getFormattedDate(),
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Normal,
-                        color = TextSecondary,
-                        lineHeight = 15.62.sp
+                        color = TextSecondary
                     )
+
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     // Prezzo
                     Text(
                         text = order.getFormattedPrice(),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Black,
-                        color = TextSecondary,
-                        lineHeight = 16.92.sp
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
+            }
+        }
+
+        // Sezione PIN (solo per ordini da ritirare)
+        if (showPin && order.pin.isNotEmpty()) {
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 12.dp),
+                thickness = 0.5.dp,
+                color = TextSecondary.copy(alpha = 0.3f)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Label + PIN
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PIN:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = TextSecondary
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // PIN con sfondo
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(PrimaryColor.copy(alpha = 0.1f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = order.pin,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryColor,
+                            letterSpacing = 2.sp
+                        )
+                    }
+                }
+
+                // Bottone copia
+                IconButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(order.pin))
+                        Toast.makeText(context, "PIN copiato!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ContentCopy,
+                        contentDescription = "Copia PIN",
+                        tint = PrimaryColor,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

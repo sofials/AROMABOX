@@ -96,10 +96,16 @@ class DistributorRepository {
         }
     }
 
-    suspend fun seedDistributorsIfNeeded() {
+    /**
+     * Seed dei distributori.
+     * @param forceOverwrite Se true, sovrascrive sempre i dati esistenti (utile per sviluppo)
+     */
+    suspend fun seedDistributorsIfNeeded(forceOverwrite: Boolean = false) {
         try {
             val snapshot = distributorsRef.get().await()
-            if (!snapshot.exists() || snapshot.childrenCount == 0L) {
+
+            // Scrivi solo se vuoto OPPURE se forceOverwrite è true
+            if (!snapshot.exists() || snapshot.childrenCount == 0L || forceOverwrite) {
                 val distributors = DistributorSeedData.getDistributors()
                 distributors.forEach { distributor ->
                     // Salva come Map per evitare problemi di serializzazione
@@ -117,6 +123,7 @@ class DistributorRepository {
                     )
                     distributorsRef.child(distributor.id).setValue(distributorMap).await()
                 }
+                android.util.Log.d("DistributorRepo", "Distributors seeded: ${distributors.size}")
             }
         } catch (e: Exception) {
             e.printStackTrace()

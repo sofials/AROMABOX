@@ -507,11 +507,11 @@ fun PurchaseSuccessOverlay(
                     color = TextSecondary
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // PIN per il ritiro
+                // PIN
                 Text(
-                    text = "Il tuo PIN per il ritiro:",
+                    text = "Il tuo PIN:",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
                     color = TextSecondary
@@ -533,15 +533,6 @@ fun PurchaseSuccessOverlay(
                         letterSpacing = 4.sp
                     )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Mostra questo PIN al distributore",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = TextSecondary
-                )
             }
         }
     }
