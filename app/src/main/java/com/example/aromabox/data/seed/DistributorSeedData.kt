@@ -19,8 +19,8 @@ object DistributorSeedData {
             attivo = true,  // ✅ Solo questo è attivo e cliccabile
             inventario = mapOf(
                 // Usa gli ID esatti da PerfumeSeedData
-                "perfume_1" to 5,   // Chanel N°5 - 5 disponibili
-                "perfume_2" to 3    // Dior Sauvage - 3 disponibili
+                "perfume_1" to 4,   // Chanel N°5 - 4 disponibili
+                "perfume_2" to 4    // Dior Sauvage - 4 disponibili
             )
         ),
 

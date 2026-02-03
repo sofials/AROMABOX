@@ -57,6 +57,12 @@ class DistributorViewModel(
             ?.getDisponibilita(perfumeId) ?: 0
     }
 
+    /**
+     * Decrementa l'inventario di un profumo presso un distributore.
+     * L'aggiornamento dello stato locale avviene automaticamente tramite
+     * il Flow Firebase in loadDistributors(), quindi NON aggiorniamo
+     * manualmente _distributors qui per evitare doppio decremento.
+     */
     fun decrementInventory(
         distributorId: String,
         perfumeId: String,
@@ -66,19 +72,9 @@ class DistributorViewModel(
         viewModelScope.launch {
             val success = repository.decrementInventory(distributorId, perfumeId)
             if (success) {
-                // Aggiorna lo stato locale
-                _distributors.value = _distributors.value.map { distributor ->
-                    if (distributor.id == distributorId) {
-                        val newInventario = distributor.inventario.toMutableMap()
-                        val currentQty = newInventario[perfumeId] ?: 0
-                        if (currentQty > 0) {
-                            newInventario[perfumeId] = currentQty - 1
-                        }
-                        distributor.copy(inventario = newInventario)
-                    } else {
-                        distributor
-                    }
-                }
+                // NON aggiorniamo lo stato locale manualmente!
+                // Il Flow Firebase in loadDistributors() riceverà automaticamente
+                // l'aggiornamento da Firebase e aggiornerà _distributors
                 onSuccess()
             } else {
                 onError("Prodotto non disponibile")
