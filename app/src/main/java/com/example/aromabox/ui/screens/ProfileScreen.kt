@@ -1,6 +1,9 @@
 package com.example.aromabox.ui.screens
 
 import com.example.aromabox.ui.components.CommonTopBar
+import com.example.aromabox.ui.components.BadgeGridContent
+import com.example.aromabox.ui.components.BadgeDetailDialog
+import com.example.aromabox.ui.components.NewBadgeUnlockedSnackbar
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -9,10 +12,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.aromabox.data.model.Badge
 import com.example.aromabox.data.model.Perfume
 import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.ui.navigation.Screen
@@ -65,7 +67,14 @@ fun ProfileScreen(
     val isLoading by userViewModel.isLoading.collectAsState()
     val allPerfumes by catalogViewModel.perfumes.collectAsState()
 
+    // Badge states
+    val userBadges by userViewModel.userBadges.collectAsState()
+    val newlyUnlockedBadge by userViewModel.newlyUnlockedBadge.collectAsState()
+
     var selectedTab by remember { mutableStateOf(ProfileTab.PROFILO_OLFATTIVO) }
+
+    // Dialog state per dettaglio badge
+    var selectedBadge by remember { mutableStateOf<Badge?>(null) }
 
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
@@ -82,6 +91,14 @@ fun ProfileScreen(
                 selectedScreen = Screen.Profile,
                 navController = navController
             )
+        },
+        snackbarHost = {
+            newlyUnlockedBadge?.let { badge ->
+                NewBadgeUnlockedSnackbar(
+                    badge = badge,
+                    onDismiss = { userViewModel.clearNewlyUnlockedBadge() }
+                )
+            }
         }
     ) { paddingValues ->
 
@@ -147,15 +164,15 @@ fun ProfileScreen(
                 .padding(paddingValues)
                 .background(Color.White)
         ) {
-            // Profile Header
+            // Profile Header - compatto
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 24.dp),
+                    .padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
-                    modifier = Modifier.size(90.dp),
+                    modifier = Modifier.size(70.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
@@ -172,7 +189,7 @@ fun ProfileScreen(
                         }
                         Text(
                             text = initial,
-                            fontSize = 36.sp,
+                            fontSize = 28.sp,
                             fontWeight = FontWeight.Bold,
                             color = Primary
                         )
@@ -181,7 +198,7 @@ fun ProfileScreen(
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .size(28.dp)
+                            .size(24.dp)
                             .clip(CircleShape)
                             .background(Primary)
                             .clickable { /* TODO: Edit profile */ },
@@ -191,12 +208,12 @@ fun ProfileScreen(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Modifica",
                             tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 val displayName = when {
                     user.nome.isNotBlank() || user.cognome.isNotBlank() ->
@@ -206,7 +223,7 @@ fun ProfileScreen(
                 }
                 Text(
                     text = displayName,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.Black
                 )
@@ -214,7 +231,7 @@ fun ProfileScreen(
                 if (user.email.isNotBlank()) {
                     Text(
                         text = user.email,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = Color(0xFF777777)
                     )
                 }
@@ -254,7 +271,7 @@ fun ProfileScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Contenuto tab
             Box(
@@ -278,56 +295,39 @@ fun ProfileScreen(
                         )
                     }
                     ProfileTab.PROFILO_OLFATTIVO -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            ProfiloOlfattivoContent(
-                                profilo = user.profiloOlfattivo,
-                                onRifaiQuiz = {
-                                    navController.navigate(Screen.Quiz.route)
-                                },
-                                onNotePreferiteClick = {
-                                    navController.navigate(Screen.NotePreferite.route)
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
+                        ProfiloOlfattivoContent(
+                            profilo = user.profiloOlfattivo,
+                            onRifaiQuiz = {
+                                navController.navigate(Screen.Quiz.route)
+                            },
+                            onNotePreferiteClick = {
+                                navController.navigate(Screen.NotePreferite.route)
+                            }
+                        )
                     }
                     ProfileTab.BADGE -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            BadgeContent(badges = user.badges)
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
+                        BadgeGridContent(
+                            badges = userBadges,
+                            onBadgeClick = { badge ->
+                                selectedBadge = badge
+                            }
+                        )
                     }
                 }
             }
+        }
 
-            // Logout button
-            OutlinedButton(
-                onClick = {
-                    authViewModel.logout()
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Logout", color = Color.Red)
-            }
+        // Dialog dettaglio badge
+        selectedBadge?.let { badge ->
+            BadgeDetailDialog(
+                badge = badge,
+                onDismiss = { selectedBadge = null }
+            )
         }
     }
 }
 
-// ✅ SEZIONE PREFERITI CON GRID (stile Figma)
+// ✅ SEZIONE PREFERITI CON GRID - Card più piccole
 @Composable
 fun PreferitiContentGrid(
     favoritePerfumes: List<Perfume>,
@@ -348,20 +348,20 @@ fun PreferitiContentGrid(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = null,
                     tint = Color(0xFFE0E0E0),
-                    modifier = Modifier.size(64.dp)
+                    modifier = Modifier.size(48.dp)
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "Non hai ancora profumi preferiti",
                     color = Color.Gray,
-                    fontSize = 16.sp,
+                    fontSize = 14.sp,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Esplora il catalogo e salva i tuoi preferiti!",
                     color = Color.LightGray,
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     textAlign = TextAlign.Center
                 )
             }
@@ -372,9 +372,9 @@ fun PreferitiContentGrid(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 16.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 8.dp)
         ) {
             items(favoritePerfumes) { perfume ->
                 FavoritePerfumeCard(
@@ -387,7 +387,7 @@ fun PreferitiContentGrid(
     }
 }
 
-// ✅ CARD PROFUMO PREFERITO (stile Figma)
+// ✅ CARD PROFUMO PREFERITO - Dimensioni ridotte
 @Composable
 fun FavoritePerfumeCard(
     perfume: Perfume,
@@ -397,7 +397,7 @@ fun FavoritePerfumeCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(257.dp)
+            .height(180.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -405,11 +405,10 @@ fun FavoritePerfumeCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column {
-                // Area Immagine
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(136.dp)
+                        .height(90.dp)
                         .background(Color(0xFFF2F2F2)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -418,60 +417,54 @@ fun FavoritePerfumeCard(
                         contentDescription = perfume.nome,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(8.dp),
+                            .padding(6.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
 
-                // Info prodotto
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
                 ) {
-                    // Marca
                     Text(
                         text = perfume.marca.uppercase(),
-                        fontSize = 13.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF222222),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        lineHeight = 18.sp
+                        lineHeight = 14.sp
                     )
 
-                    // Nome prodotto
                     Text(
                         text = perfume.nome,
-                        fontSize = 16.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Normal,
                         color = Color(0xFF1E1E1E),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        lineHeight = 23.sp,
-                        letterSpacing = 0.5.sp
+                        lineHeight = 16.sp
                     )
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // Prezzo
                     Text(
                         text = String.format(Locale.ITALIAN, "%.2f €", perfume.prezzo),
-                        fontSize = 22.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Black,
                         color = NeutralColor,
-                        lineHeight = 28.64.sp
+                        lineHeight = 20.sp
                     )
                 }
             }
 
-            // Pulsante Cuore pieno (è nei preferiti)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(11.dp)
-                    .size(34.dp, 26.dp)
-                    .clip(RoundedCornerShape(15.dp))
+                    .padding(8.dp)
+                    .size(28.dp, 22.dp)
+                    .clip(RoundedCornerShape(11.dp))
                     .background(SecondaryColor)
                     .clickable(onClick = onRemoveFavorite),
                 contentAlignment = Alignment.Center
@@ -480,13 +473,14 @@ fun FavoritePerfumeCard(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = "Rimuovi dai preferiti",
                     tint = Color.White,
-                    modifier = Modifier.size(19.dp, 18.dp)
+                    modifier = Modifier.size(14.dp)
                 )
             }
         }
     }
 }
 
+// ✅ PROFILO OLFATTIVO - Layout compatto senza scroll
 @Composable
 fun ProfiloOlfattivoContent(
     profilo: ProfiloOlfattivo?,
@@ -496,17 +490,18 @@ fun ProfiloOlfattivoContent(
     if (profilo == null || profilo.getTutteLeNote().isEmpty()) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = "Non hai ancora completato il quiz olfattivo",
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 color = Color.Gray,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onRifaiQuiz,
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
@@ -516,24 +511,28 @@ fun ProfiloOlfattivoContent(
         }
     } else {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            PieChart(profilo = profilo)
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                PieChartCompact(profilo = profilo)
+            }
 
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
                     .clickable { onNotePreferiteClick() },
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -543,20 +542,20 @@ fun ProfiloOlfattivoContent(
                         Text(
                             text = "Note preferite",
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                         Text(
                             text = "›",
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             color = Color.Gray
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         val tutteLeNote = profilo.getTutteLeNote()
                         tutteLeNote.take(3).forEach { nota ->
@@ -565,7 +564,7 @@ fun ProfiloOlfattivoContent(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(48.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
                                         .background(Color(0xFFF5F5F5))
                                 ) {
@@ -578,13 +577,13 @@ fun ProfiloOlfattivoContent(
                                         contentScale = ContentScale.Crop
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = nota,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.sp,
                                     color = Color.Gray,
                                     textAlign = TextAlign.Center,
-                                    maxLines = 2
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -592,26 +591,28 @@ fun ProfiloOlfattivoContent(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedButton(
                 onClick = onRifaiQuiz,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = Color(0xFF737083)
-                )
+                ),
+                contentPadding = PaddingValues(vertical = 10.dp)
             ) {
-                Text("RIFAI IL TEST")
+                Text("RIFAI IL TEST", fontSize = 12.sp)
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
 
+// ✅ PIE CHART COMPATTO
 @Composable
-fun PieChart(profilo: ProfiloOlfattivo) {
+fun PieChartCompact(profilo: ProfiloOlfattivo) {
     val percentuali = listOf(
         profilo.getPercentualeFloreale(),
         profilo.getPercentualeFruttata(),
@@ -639,7 +640,7 @@ fun PieChart(profilo: ProfiloOlfattivo) {
     val nomi = listOf("floreale", "fruttato", "speziato", "gourmand", "legnoso")
 
     Box(
-        modifier = Modifier.size(280.dp),
+        modifier = Modifier.size(220.dp),
         contentAlignment = Alignment.Center
     ) {
         val total = percentuali.sum()
@@ -648,7 +649,7 @@ fun PieChart(profilo: ProfiloOlfattivo) {
             Text(
                 text = "Nessun dato disponibile",
                 color = Color.Gray,
-                fontSize = 14.sp
+                fontSize = 12.sp
             )
             return@Box
         }
@@ -663,9 +664,9 @@ fun PieChart(profilo: ProfiloOlfattivo) {
         }
 
         Canvas(
-            modifier = Modifier.size(160.dp)
+            modifier = Modifier.size(120.dp)
         ) {
-            val strokeWidth = 35.dp.toPx()
+            val strokeWidth = 28.dp.toPx()
             val radius = (size.minDimension - strokeWidth) / 2
             val topLeft = Offset(
                 (size.width - radius * 2) / 2,
@@ -691,7 +692,7 @@ fun PieChart(profilo: ProfiloOlfattivo) {
             }
         }
 
-        val labelRadius = 115.dp
+        val labelRadius = 90.dp
 
         percentuali.forEachIndexed { index, percentuale ->
             if (percentuale > 0f) {
@@ -701,11 +702,11 @@ fun PieChart(profilo: ProfiloOlfattivo) {
 
                 Text(
                     text = "${percentuale.toInt()}%\n${nomi[index]}",
-                    fontSize = 11.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Medium,
                     color = coloriTesto[index],
                     textAlign = TextAlign.Center,
-                    lineHeight = 14.sp,
+                    lineHeight = 11.sp,
                     modifier = Modifier.offset(x = xOffset, y = yOffset)
                 )
             }
@@ -713,29 +714,17 @@ fun PieChart(profilo: ProfiloOlfattivo) {
     }
 }
 
+// Manteniamo la versione originale per retrocompatibilità
 @Composable
-fun BadgeContent(badges: List<com.example.aromabox.data.model.Badge>) {
-    if (badges.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Non hai ancora badge",
-                color = Color.Gray,
-                textAlign = TextAlign.Center
-            )
-        }
-    } else {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Hai ${badges.size} badge",
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
+fun PieChart(profilo: ProfiloOlfattivo) {
+    PieChartCompact(profilo)
+}
+
+// BadgeContent ora usa BadgeGridContent
+@Composable
+fun BadgeContent(badges: List<Badge>) {
+    BadgeGridContent(
+        badges = badges,
+        onBadgeClick = { /* Handled in ProfileScreen */ }
+    )
 }

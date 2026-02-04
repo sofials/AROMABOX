@@ -1,5 +1,8 @@
 package com.example.aromabox.data.repository
 
+import com.example.aromabox.data.model.Badge
+import com.example.aromabox.data.model.BadgeDefinitions
+import com.example.aromabox.data.model.BadgeRequirementType
 import com.example.aromabox.data.model.Order
 import com.example.aromabox.data.model.Perfume
 import com.example.aromabox.data.model.ProfiloOlfattivo
@@ -69,6 +72,14 @@ class UserRepository {
             // Parse profiloOlfattivo
             val profiloOlfattivo = parseProfiloOlfattivo(snapshot.child("profiloOlfattivo"))
 
+            // Parse badges
+            val badges = parseBadgesList(snapshot.child("badges"))
+
+            // Parse statistiche per i badge
+            val totaleAcquisti = snapshot.child("totaleAcquisti").getValue(Int::class.java) ?: 0
+            val totaleRecensioni = snapshot.child("totaleRecensioni").getValue(Int::class.java) ?: 0
+            val totaleErogazioni = snapshot.child("totaleErogazioni").getValue(Int::class.java) ?: 0
+
             User(
                 uid = uid,
                 email = email,
@@ -78,7 +89,11 @@ class UserRepository {
                 wallet = wallet,
                 preferiti = preferiti,
                 profiloOlfattivo = profiloOlfattivo,
-                isConnected = isConnected
+                isConnected = isConnected,
+                badges = badges,
+                totaleAcquisti = totaleAcquisti,
+                totaleRecensioni = totaleRecensioni,
+                totaleErogazioni = totaleErogazioni
             )
         } catch (e: Exception) {
             e.printStackTrace()
@@ -116,6 +131,45 @@ class UserRepository {
                 noteSpeziate = parseStringList(snapshot.child("noteSpeziate")),
                 noteGourmand = parseStringList(snapshot.child("noteGourmand")),
                 noteLegnose = parseStringList(snapshot.child("noteLegnose"))
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Parsing della lista badge
+     */
+    private fun parseBadgesList(snapshot: DataSnapshot): List<Badge> {
+        if (!snapshot.exists()) return emptyList()
+
+        return try {
+            val result = mutableListOf<Badge>()
+            for (child in snapshot.children) {
+                parseBadgeFromSnapshot(child)?.let { result.add(it) }
+            }
+            result
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Parsing di un singolo badge
+     */
+    private fun parseBadgeFromSnapshot(snapshot: DataSnapshot): Badge? {
+        if (!snapshot.exists()) return null
+
+        return try {
+            Badge(
+                id = snapshot.child("id").getValue(String::class.java) ?: "",
+                nome = snapshot.child("nome").getValue(String::class.java) ?: "",
+                descrizione = snapshot.child("descrizione").getValue(String::class.java) ?: "",
+                category = snapshot.child("category").getValue(String::class.java) ?: "",
+                livello = snapshot.child("livello").getValue(Int::class.java) ?: 1,
+                iconResName = snapshot.child("iconResName").getValue(String::class.java) ?: "ic_badge_placeholder",
+                dataOttenimento = snapshot.child("dataOttenimento").getValue(Long::class.java) ?: 0L,
+                isUnlocked = snapshot.child("isUnlocked").getValue(Boolean::class.java) ?: false
             )
         } catch (e: Exception) {
             null
@@ -175,6 +229,116 @@ class UserRepository {
             usersRef.child(userId).child("isConnected").setValue(isConnected).await()
         } catch (e: Exception) {
             throw e
+        }
+    }
+
+    // ==================== BADGE METHODS ====================
+
+    /**
+     * Salva un badge sbloccato per l'utente
+     */
+    suspend fun unlockBadge(userId: String, badge: Badge): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val badgeMap = mapOf(
+                "id" to badge.id,
+                "nome" to badge.nome,
+                "descrizione" to badge.descrizione,
+                "category" to badge.category,
+                "livello" to badge.livello,
+                "iconResName" to badge.iconResName,
+                "dataOttenimento" to badge.dataOttenimento,
+                "isUnlocked" to badge.isUnlocked
+            )
+            usersRef.child(userId).child("badges").child(badge.id).setValue(badgeMap).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Recupera tutti i badge sbloccati dell'utente
+     */
+    suspend fun getUnlockedBadges(userId: String): List<Badge> = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = usersRef.child(userId).child("badges").get().await()
+            parseBadgesList(snapshot).filter { it.isUnlocked }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Verifica se un badge specifico è sbloccato
+     */
+    suspend fun isBadgeUnlocked(userId: String, badgeId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = usersRef.child(userId).child("badges").child(badgeId).get().await()
+            snapshot.child("isUnlocked").getValue(Boolean::class.java) ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Incrementa il contatore acquisti e verifica badge
+     */
+    suspend fun incrementAcquisti(userId: String): Int = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = usersRef.child(userId).child("totaleAcquisti").get().await()
+            val current = snapshot.getValue(Int::class.java) ?: 0
+            val newValue = current + 1
+            usersRef.child(userId).child("totaleAcquisti").setValue(newValue).await()
+            newValue
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    /**
+     * Incrementa il contatore recensioni
+     */
+    suspend fun incrementRecensioni(userId: String): Int = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = usersRef.child(userId).child("totaleRecensioni").get().await()
+            val current = snapshot.getValue(Int::class.java) ?: 0
+            val newValue = current + 1
+            usersRef.child(userId).child("totaleRecensioni").setValue(newValue).await()
+            newValue
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    /**
+     * Incrementa il contatore erogazioni
+     */
+    suspend fun incrementErogazioni(userId: String): Int = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = usersRef.child(userId).child("totaleErogazioni").get().await()
+            val current = snapshot.getValue(Int::class.java) ?: 0
+            val newValue = current + 1
+            usersRef.child(userId).child("totaleErogazioni").setValue(newValue).await()
+            newValue
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    /**
+     * Recupera le statistiche utente per i badge
+     */
+    suspend fun getUserStats(userId: String): UserStats = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = usersRef.child(userId).get().await()
+            UserStats(
+                totaleAcquisti = snapshot.child("totaleAcquisti").getValue(Int::class.java) ?: 0,
+                totaleRecensioni = snapshot.child("totaleRecensioni").getValue(Int::class.java) ?: 0,
+                totaleErogazioni = snapshot.child("totaleErogazioni").getValue(Int::class.java) ?: 0,
+                totalePreferiti = parseStringList(snapshot.child("preferiti")).size
+            )
+        } catch (e: Exception) {
+            UserStats()
         }
     }
 
@@ -435,3 +599,13 @@ class UserRepository {
             }
         }
 }
+
+/**
+ * Data class per le statistiche utente relative ai badge
+ */
+data class UserStats(
+    val totaleAcquisti: Int = 0,
+    val totaleRecensioni: Int = 0,
+    val totaleErogazioni: Int = 0,
+    val totalePreferiti: Int = 0
+)

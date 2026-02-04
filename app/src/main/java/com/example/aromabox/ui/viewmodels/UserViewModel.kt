@@ -2,10 +2,14 @@ package com.example.aromabox.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.aromabox.data.model.Badge
+import com.example.aromabox.data.model.BadgeDefinitions
+import com.example.aromabox.data.model.BadgeRequirementType
 import com.example.aromabox.data.model.Perfume
 import com.example.aromabox.data.model.ProfiloOlfattivo
 import com.example.aromabox.data.model.User
 import com.example.aromabox.data.repository.UserRepository
+import com.example.aromabox.data.repository.UserStats
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +28,16 @@ class UserViewModel(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    // Badge states
+    private val _userBadges = MutableStateFlow<List<Badge>>(emptyList())
+    val userBadges: StateFlow<List<Badge>> = _userBadges.asStateFlow()
+
+    private val _userStats = MutableStateFlow(UserStats())
+    val userStats: StateFlow<UserStats> = _userStats.asStateFlow()
+
+    private val _newlyUnlockedBadge = MutableStateFlow<Badge?>(null)
+    val newlyUnlockedBadge: StateFlow<Badge?> = _newlyUnlockedBadge.asStateFlow()
 
     private val auth = FirebaseAuth.getInstance()
 
@@ -67,6 +81,11 @@ class UserViewModel(
             repository.getUserById(uid).collect { user ->
                 _currentUser.value = user
                 _isLoading.value = false
+
+                // Carica anche i badge
+                user?.let {
+                    loadUserBadgesAndStats(uid)
+                }
             }
         }
     }
@@ -129,6 +148,9 @@ class UserViewModel(
                 repository.updateFavorites(userId, currentFavorites)
                 _currentUser.value = _currentUser.value?.copy(preferiti = currentFavorites)
 
+                // Verifica badge Esploratore dopo aggiunta preferiti
+                checkAndUnlockBadges(BadgeRequirementType.PREFERITI, currentFavorites.size)
+
             } catch (e: Exception) {
                 _errorMessage.value = "Errore nell'aggiornare i preferiti: ${e.message}"
             }
@@ -181,6 +203,13 @@ class UserViewModel(
 
                 result.fold(
                     onSuccess = { order ->
+                        // Incrementa contatori e verifica badge
+                        val newAcquisti = repository.incrementAcquisti(userId)
+                        val newErogazioni = repository.incrementErogazioni(userId)
+
+                        checkAndUnlockBadges(BadgeRequirementType.ACQUISTI, newAcquisti)
+                        checkAndUnlockBadges(BadgeRequirementType.EROGAZIONI, newErogazioni)
+
                         onSuccess(order.pin)
                     },
                     onFailure = { exception ->
@@ -248,5 +277,123 @@ class UserViewModel(
 
     fun logout() {
         auth.signOut()
+    }
+
+    // ==================== BADGE METHODS ====================
+
+    /**
+     * Carica i badge e le statistiche dell'utente
+     */
+    private fun loadUserBadgesAndStats(userId: String) {
+        viewModelScope.launch {
+            try {
+                val stats = repository.getUserStats(userId)
+                _userStats.value = stats
+
+                // Genera la lista completa di badge con stato
+                val unlockedBadges = repository.getUnlockedBadges(userId)
+                val unlockedIds = unlockedBadges.map { it.id }.toSet()
+
+                val allBadgesWithState = BadgeDefinitions.allBadges.map { definition ->
+                    val isUnlocked = unlockedIds.contains(definition.id)
+                    val unlockedBadge = unlockedBadges.find { it.id == definition.id }
+
+                    Badge.fromDefinition(
+                        definition = definition,
+                        isUnlocked = isUnlocked,
+                        dataOttenimento = unlockedBadge?.dataOttenimento ?: 0L
+                    )
+                }
+
+                _userBadges.value = allBadgesWithState
+            } catch (e: Exception) {
+                _errorMessage.value = "Errore nel caricamento badge: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Verifica e sblocca badge in base al tipo di requisito e valore raggiunto
+     */
+    private fun checkAndUnlockBadges(requirementType: BadgeRequirementType, currentValue: Int) {
+        viewModelScope.launch {
+            val userId = getCurrentUserId() ?: return@launch
+
+            try {
+                // Trova tutti i badge di questo tipo che possono essere sbloccati
+                val badgesToCheck = BadgeDefinitions.findByRequirementType(requirementType)
+
+                for (definition in badgesToCheck) {
+                    // Verifica se il requisito è soddisfatto
+                    if (currentValue >= definition.requirementValue) {
+                        // Verifica se non è già sbloccato
+                        val alreadyUnlocked = repository.isBadgeUnlocked(userId, definition.id)
+
+                        if (!alreadyUnlocked) {
+                            // Sblocca il badge
+                            val newBadge = Badge.fromDefinition(
+                                definition = definition,
+                                isUnlocked = true,
+                                dataOttenimento = System.currentTimeMillis()
+                            )
+
+                            repository.unlockBadge(userId, newBadge)
+
+                            // Notifica UI del nuovo badge sbloccato
+                            _newlyUnlockedBadge.value = newBadge
+
+                            // Ricarica i badge
+                            loadUserBadgesAndStats(userId)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Errore nella verifica badge: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Chiamato quando l'utente lascia una recensione
+     */
+    fun onReviewSubmitted() {
+        viewModelScope.launch {
+            val userId = getCurrentUserId() ?: return@launch
+
+            try {
+                val newRecensioni = repository.incrementRecensioni(userId)
+                checkAndUnlockBadges(BadgeRequirementType.RECENSIONI, newRecensioni)
+            } catch (e: Exception) {
+                _errorMessage.value = "Errore nell'aggiornamento recensioni: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Resetta la notifica del nuovo badge sbloccato
+     */
+    fun clearNewlyUnlockedBadge() {
+        _newlyUnlockedBadge.value = null
+    }
+
+    /**
+     * Ottieni tutti i badge con il loro stato attuale
+     */
+    fun getAllBadgesWithState(): List<Badge> {
+        return _userBadges.value
+    }
+
+    /**
+     * Conta i badge sbloccati
+     */
+    fun getUnlockedBadgeCount(): Int {
+        return _userBadges.value.count { it.isUnlocked }
+    }
+
+    /**
+     * Conta i badge totali
+     */
+    fun getTotalBadgeCount(): Int {
+        return BadgeDefinitions.allBadges.size
     }
 }
