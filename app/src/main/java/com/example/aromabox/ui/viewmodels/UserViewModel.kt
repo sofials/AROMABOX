@@ -354,22 +354,6 @@ class UserViewModel(
     }
 
     /**
-     * Chiamato quando l'utente lascia una recensione
-     */
-    fun onReviewSubmitted() {
-        viewModelScope.launch {
-            val userId = getCurrentUserId() ?: return@launch
-
-            try {
-                val newRecensioni = repository.incrementRecensioni(userId)
-                checkAndUnlockBadges(BadgeRequirementType.RECENSIONI, newRecensioni)
-            } catch (e: Exception) {
-                _errorMessage.value = "Errore nell'aggiornamento recensioni: ${e.message}"
-            }
-        }
-    }
-
-    /**
      * Resetta la notifica del nuovo badge sbloccato
      */
     fun clearNewlyUnlockedBadge() {

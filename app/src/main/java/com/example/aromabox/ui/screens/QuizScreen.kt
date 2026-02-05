@@ -43,7 +43,7 @@ import kotlinx.coroutines.delay
 private val QuizProgressBg = Color(0xFFEEEEEE)
 private val QuizProgressFill = Color(0xFF8378BF)
 private val QuizAccent = Color(0xFF9A91C9)
-private val CheckBgColor = Color(0xFFEDE9FF)
+private val SecondaryColor = Color(0xFFC4B9FF)
 
 data class NotaOlfattiva(
     val nome: String,
@@ -345,6 +345,11 @@ fun QuizScreen(
     }
 }
 
+/**
+ * Overlay compatto per quiz completato
+ * Stile card come gli altri overlay
+ * Scompare automaticamente dopo 2 secondi
+ */
 @Composable
 fun QuizCompletedOverlay(
     visible: Boolean,
@@ -360,43 +365,53 @@ fun QuizCompletedOverlay(
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(animationSpec = tween(300)),
-        exit = fadeOut(animationSpec = tween(300))
+        enter = fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.8f, animationSpec = tween(200)),
+        exit = fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.8f, animationSpec = tween(200))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White),
+                .background(Color.Black.copy(alpha = 0.3f)),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+            // Card compatta stile badge
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 48.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F6FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                // Cerchio con check
-                Box(
+                Column(
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(CheckBgColor),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 32.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = "Completato",
-                        tint = QuizAccent,
-                        modifier = Modifier.size(50.dp)
+                    // Cerchio con check
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(SecondaryColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Completato",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Quiz completato!",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF2A282F)
                     )
                 }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Text(
-                    text = "Quiz completato!",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Black
-                )
             }
         }
     }

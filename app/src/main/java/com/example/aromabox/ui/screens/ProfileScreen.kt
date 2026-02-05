@@ -1,6 +1,7 @@
 package com.example.aromabox.ui.screens
 
 import com.example.aromabox.ui.components.CommonTopBar
+import com.example.aromabox.ui.components.AppDrawerContent
 import com.example.aromabox.ui.components.BadgeGridContent
 import com.example.aromabox.ui.components.BadgeDetailDialog
 import com.example.aromabox.ui.components.NewBadgeUnlockedSnackbar
@@ -27,10 +28,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -44,12 +47,14 @@ import com.example.aromabox.ui.viewmodels.UserViewModel
 import com.example.aromabox.ui.viewmodels.AuthViewModel
 import com.example.aromabox.ui.viewmodels.CatalogViewModel
 import com.example.aromabox.utils.getImageResForNota
+import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val TabActiveBg = Color(0xFFCFC5FF)
-private val TabInactiveBg = Color(0xFFF2F2F2)
+private val TabActiveBg = Color(0xFFC4B9FF)
+private val TabInactiveBg = Color(0xFFEDEDED)
 private val SecondaryColor = Color(0xFFC4B9FF)
 private val NeutralColor = Color(0xFF737083)
+private val EditIconBg = Color(0xFF4D2161)
 
 enum class ProfileTab {
     PREFERITI, PROFILO_OLFATTIVO, BADGE
@@ -67,267 +72,316 @@ fun ProfileScreen(
     val isLoading by userViewModel.isLoading.collectAsState()
     val allPerfumes by catalogViewModel.perfumes.collectAsState()
 
-    // Badge states
     val userBadges by userViewModel.userBadges.collectAsState()
     val newlyUnlockedBadge by userViewModel.newlyUnlockedBadge.collectAsState()
 
     var selectedTab by remember { mutableStateOf(ProfileTab.PROFILO_OLFATTIVO) }
-
-    // Dialog state per dettaglio badge
     var selectedBadge by remember { mutableStateOf<Badge?>(null) }
+
+    // Drawer state
+    val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
     }
 
-    Scaffold(
-        topBar = {
-            CommonTopBar(
-                onMenuClick = { /* TODO: Menu */ }
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                selectedScreen = Screen.Profile,
-                navController = navController
-            )
-        },
-        snackbarHost = {
-            newlyUnlockedBadge?.let { badge ->
-                NewBadgeUnlockedSnackbar(
-                    badge = badge,
-                    onDismiss = { userViewModel.clearNewlyUnlockedBadge() }
-                )
-            }
-        }
-    ) { paddingValues ->
-
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = Primary)
-            }
-            return@Scaffold
-        }
-
-        if (currentUser == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "Impossibile caricare il profilo",
-                        fontSize = 16.sp,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { userViewModel.loadCurrentUser() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
+    // ModalNavigationDrawer che si apre da DESTRA
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = false,
+            drawerContent = {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    ModalDrawerSheet(
+                        drawerContainerColor = Color.Transparent,
+                        drawerContentColor = Color.Black,
+                        modifier = Modifier.width(300.dp)
                     ) {
-                        Text("Riprova")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(
-                        onClick = {
-                            authViewModel.logout()
-                            navController.navigate(Screen.Login.route) {
-                                popUpTo(0) { inclusive = true }
+                        AppDrawerContent(
+                            onCloseClick = { scope.launch { drawerState.close() } },
+                            onInfoClick = { scope.launch { drawerState.close() } },
+                            onContattiClick = { scope.launch { drawerState.close() } },
+                            onDisconnessioneClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    userViewModel.logout()
+                                    navController.navigate(Screen.Login.route) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
                             }
-                        }
-                    ) {
-                        Text("Torna al login", color = Color.Red)
+                        )
                     }
                 }
             }
-            return@Scaffold
-        }
-
-        val user = currentUser!!
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color.White)
         ) {
-            // Profile Header - compatto
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier.size(70.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Scaffold(
+                    topBar = {
+                        CommonTopBar(
+                            onMenuClick = { scope.launch { drawerState.open() } },
+                            onLogoClick = {
+                                navController.navigate(Screen.Home.route) {
+                                    popUpTo(Screen.Home.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    },
+                    bottomBar = {
+                        BottomNavigationBar(
+                            selectedScreen = Screen.Profile,
+                            navController = navController
+                        )
+                    },
+                    snackbarHost = {
+                        newlyUnlockedBadge?.let { badge ->
+                            NewBadgeUnlockedSnackbar(
+                                badge = badge,
+                                onDismiss = { userViewModel.clearNewlyUnlockedBadge() }
+                            )
+                        }
+                    }
+                ) { paddingValues ->
+
+                    if (isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Primary)
+                        }
+                        return@Scaffold
+                    }
+
+                    if (currentUser == null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Impossibile caricare il profilo",
+                                    fontSize = 16.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { userViewModel.loadCurrentUser() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                                ) {
+                                    Text("Riprova")
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                TextButton(
+                                    onClick = {
+                                        authViewModel.logout()
+                                        navController.navigate(Screen.Login.route) {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                ) {
+                                    Text("Torna al login", color = Color.Red)
+                                }
+                            }
+                        }
+                        return@Scaffold
+                    }
+
+                    val user = currentUser!!
+
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(CircleShape)
-                            .background(Color(0xFFF0F0F0)),
-                        contentAlignment = Alignment.Center
+                            .padding(paddingValues)
+                            .background(Color.White)
                     ) {
-                        val initial = when {
-                            user.nome.isNotBlank() -> user.nome.first().uppercase()
-                            user.email.isNotBlank() -> user.email.first().uppercase()
-                            else -> "?"
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White,
+                            shadowElevation = 4.dp,
+                            shape = RoundedCornerShape(bottomStart = 15.dp, bottomEnd = 15.dp)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp, bottom = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(80.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(32.dp))
+                                                .background(Color(0xFFC4B9FF).copy(alpha = 0.14f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .offset(y = (-10).dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFFC4B9FF))
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(60.dp)
+                                                    .offset(y = 25.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFFC4B9FF).copy(alpha = 0.80f))
+                                            )
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .offset(x = 4.dp, y = 4.dp)
+                                                .size(24.dp)
+                                                .clip(CircleShape)
+                                                .background(EditIconBg)
+                                                .clickable { },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Modifica",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    val displayName = when {
+                                        user.nome.isNotBlank() || user.cognome.isNotBlank() ->
+                                            "${user.nome} ${user.cognome}".trim()
+                                        user.email.isNotBlank() -> user.email.substringBefore("@")
+                                        else -> "Utente"
+                                    }
+                                    Text(
+                                        text = displayName,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF1F2024),
+                                        letterSpacing = 0.08.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    val nickname = "@${user.email.substringBefore("@").lowercase()}"
+                                    Text(
+                                        text = nickname,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF71727A),
+                                        letterSpacing = 0.12.sp,
+                                        lineHeight = 16.sp
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .padding(bottom = 16.dp)
+                                        .height(29.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(TabInactiveBg)
+                                        .padding(4.dp)
+                                ) {
+                                    ProfileTab.entries.forEach { tab ->
+                                        val isSelected = selectedTab == tab
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (isSelected) TabActiveBg else Color.Transparent)
+                                                .clickable { selectedTab = tab },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = when (tab) {
+                                                    ProfileTab.PREFERITI -> "Preferiti"
+                                                    ProfileTab.PROFILO_OLFATTIVO -> "Profilo olfattivo"
+                                                    ProfileTab.BADGE -> "Badge"
+                                                },
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (isSelected) Color.Black else Color(0xFF484C52),
+                                                lineHeight = 13.2.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        Text(
-                            text = initial,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Primary
-                        )
-                    }
 
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(Primary)
-                            .clickable { /* TODO: Edit profile */ },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Modifica",
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val displayName = when {
-                    user.nome.isNotBlank() || user.cognome.isNotBlank() ->
-                        "${user.nome} ${user.cognome}".trim()
-                    user.email.isNotBlank() -> user.email.substringBefore("@")
-                    else -> "Utente"
-                }
-                Text(
-                    text = displayName,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.Black
-                )
-
-                if (user.email.isNotBlank()) {
-                    Text(
-                        text = user.email,
-                        fontSize = 12.sp,
-                        color = Color(0xFF777777)
-                    )
-                }
-            }
-
-            // Tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(TabInactiveBg)
-                    .padding(4.dp)
-            ) {
-                ProfileTab.entries.forEach { tab ->
-                    val isSelected = selectedTab == tab
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) TabActiveBg.copy(alpha = 0.8f) else Color.Transparent)
-                            .clickable { selectedTab = tab }
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = when (tab) {
-                                ProfileTab.PREFERITI -> "Preferiti"
-                                ProfileTab.PROFILO_OLFATTIVO -> "Profilo olfattivo"
-                                ProfileTab.BADGE -> "Badge"
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isSelected) Color.Black else Color(0xFF484C52)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Contenuto tab
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                when (selectedTab) {
-                    ProfileTab.PREFERITI -> {
-                        val favoritePerfumes = allPerfumes.filter { perfume ->
-                            user.preferiti.contains(perfume.id)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
+                            when (selectedTab) {
+                                ProfileTab.PREFERITI -> {
+                                    val favoritePerfumes = allPerfumes.filter { perfume ->
+                                        user.preferiti.contains(perfume.id)
+                                    }
+                                    PreferitiContentGrid(
+                                        favoritePerfumes = favoritePerfumes,
+                                        onPerfumeClick = { perfumeId ->
+                                            navController.navigate("perfume_detail/$perfumeId")
+                                        },
+                                        onRemoveFavorite = { perfumeId ->
+                                            userViewModel.toggleFavorite(perfumeId)
+                                        }
+                                    )
+                                }
+                                ProfileTab.PROFILO_OLFATTIVO -> {
+                                    ProfiloOlfattivoContent(
+                                        profilo = user.profiloOlfattivo,
+                                        onRifaiQuiz = { navController.navigate(Screen.Quiz.route) },
+                                        onNotePreferiteClick = { navController.navigate(Screen.NotePreferite.route) }
+                                    )
+                                }
+                                ProfileTab.BADGE -> {
+                                    BadgeGridContent(
+                                        badges = userBadges,
+                                        onBadgeClick = { badge -> selectedBadge = badge }
+                                    )
+                                }
+                            }
                         }
-                        PreferitiContentGrid(
-                            favoritePerfumes = favoritePerfumes,
-                            onPerfumeClick = { perfumeId ->
-                                navController.navigate("perfume_detail/$perfumeId")
-                            },
-                            onRemoveFavorite = { perfumeId ->
-                                userViewModel.toggleFavorite(perfumeId)
-                            }
-                        )
                     }
-                    ProfileTab.PROFILO_OLFATTIVO -> {
-                        ProfiloOlfattivoContent(
-                            profilo = user.profiloOlfattivo,
-                            onRifaiQuiz = {
-                                navController.navigate(Screen.Quiz.route)
-                            },
-                            onNotePreferiteClick = {
-                                navController.navigate(Screen.NotePreferite.route)
-                            }
-                        )
-                    }
-                    ProfileTab.BADGE -> {
-                        BadgeGridContent(
-                            badges = userBadges,
-                            onBadgeClick = { badge ->
-                                selectedBadge = badge
-                            }
+
+                    selectedBadge?.let { badge ->
+                        BadgeDetailDialog(
+                            badge = badge,
+                            onDismiss = { selectedBadge = null }
                         )
                     }
                 }
             }
-        }
-
-        // Dialog dettaglio badge
-        selectedBadge?.let { badge ->
-            BadgeDetailDialog(
-                badge = badge,
-                onDismiss = { selectedBadge = null }
-            )
         }
     }
 }
 
-// ✅ SEZIONE PREFERITI CON GRID - Card più piccole
 @Composable
 fun PreferitiContentGrid(
     favoritePerfumes: List<Perfume>,
@@ -341,9 +395,7 @@ fun PreferitiContentGrid(
                 .padding(32.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = null,
@@ -387,7 +439,6 @@ fun PreferitiContentGrid(
     }
 }
 
-// ✅ CARD PROFUMO PREFERITO - Dimensioni ridotte
 @Composable
 fun FavoritePerfumeCard(
     perfume: Perfume,
@@ -480,7 +531,6 @@ fun FavoritePerfumeCard(
     }
 }
 
-// ✅ PROFILO OLFATTIVO - Layout compatto senza scroll
 @Composable
 fun ProfiloOlfattivoContent(
     profilo: ProfiloOlfattivo?,
@@ -531,9 +581,7 @@ fun ProfiloOlfattivoContent(
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                Column(
-                    modifier = Modifier.padding(12.dp)
-                ) {
+                Column(modifier = Modifier.padding(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -559,9 +607,7 @@ fun ProfiloOlfattivoContent(
                     ) {
                         val tutteLeNote = profilo.getTutteLeNote()
                         tutteLeNote.take(3).forEach { nota ->
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
@@ -597,9 +643,7 @@ fun ProfiloOlfattivoContent(
                 onClick = onRifaiQuiz,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF737083)
-                ),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF737083)),
                 contentPadding = PaddingValues(vertical = 10.dp)
             ) {
                 Text("RIFAI IL TEST", fontSize = 12.sp)
@@ -610,7 +654,6 @@ fun ProfiloOlfattivoContent(
     }
 }
 
-// ✅ PIE CHART COMPATTO
 @Composable
 fun PieChartCompact(profilo: ProfiloOlfattivo) {
     val percentuali = listOf(
@@ -646,11 +689,7 @@ fun PieChartCompact(profilo: ProfiloOlfattivo) {
         val total = percentuali.sum()
 
         if (total <= 0f) {
-            Text(
-                text = "Nessun dato disponibile",
-                color = Color.Gray,
-                fontSize = 12.sp
-            )
+            Text(text = "Nessun dato disponibile", color = Color.Gray, fontSize = 12.sp)
             return@Box
         }
 
@@ -663,9 +702,7 @@ fun PieChartCompact(profilo: ProfiloOlfattivo) {
             currentAngle += sweepAngle
         }
 
-        Canvas(
-            modifier = Modifier.size(120.dp)
-        ) {
+        Canvas(modifier = Modifier.size(120.dp)) {
             val strokeWidth = 28.dp.toPx()
             val radius = (size.minDimension - strokeWidth) / 2
             val topLeft = Offset(
@@ -714,17 +751,15 @@ fun PieChartCompact(profilo: ProfiloOlfattivo) {
     }
 }
 
-// Manteniamo la versione originale per retrocompatibilità
 @Composable
 fun PieChart(profilo: ProfiloOlfattivo) {
     PieChartCompact(profilo)
 }
 
-// BadgeContent ora usa BadgeGridContent
 @Composable
 fun BadgeContent(badges: List<Badge>) {
     BadgeGridContent(
         badges = badges,
-        onBadgeClick = { /* Handled in ProfileScreen */ }
+        onBadgeClick = { }
     )
 }

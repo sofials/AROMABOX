@@ -26,18 +26,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.aromabox.data.model.Distributor
 import com.example.aromabox.data.model.Perfume
+import com.example.aromabox.ui.components.AppDrawerContent
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.viewmodels.CatalogViewModel
 import com.example.aromabox.ui.viewmodels.DistributorViewModel
 import com.example.aromabox.ui.viewmodels.UserViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 // Colori dal Figma
@@ -69,6 +73,10 @@ fun PerfumeDetailScreen(
     val allPerfumes by catalogViewModel.perfumes.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
     val distributors by distributorViewModel.distributors.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    // Stato del drawer
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val perfume = allPerfumes.find { it.id == perfumeId }
     val isFavorite = currentUser?.preferiti?.contains(perfumeId) ?: false
@@ -78,6 +86,10 @@ fun PerfumeDetailScreen(
     var isProcessing by remember { mutableStateOf(false) }
     var showSuccessOverlay by remember { mutableStateOf(false) }
     var generatedPin by remember { mutableStateOf("") }
+
+    // Stato per overlay preferiti
+    var showFavoriteOverlay by remember { mutableStateOf(false) }
+    var favoriteWasAdded by remember { mutableStateOf(true) }
 
     // Distributori attivi che hanno questo profumo disponibile
     val availableDistributors = distributors.filter { distributor ->
@@ -98,256 +110,308 @@ fun PerfumeDetailScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                DetailTopBar(
-                    onBackClick = { navController.popBackStack() },
-                    onMenuClick = { /* TODO: Menu */ }
-                )
-            },
-            bottomBar = {
-                DetailBottomSection(
-                    navController = navController,
-                    isEnabled = selectedDistributorId != null && !isProcessing,
-                    isProcessing = isProcessing,
-                    onAcquistaClick = {
-                        val distributorId = selectedDistributorId
-                        val distributor = selectedDistributor
-                        if (distributorId != null && distributor != null) {
-                            val userWallet = currentUser?.wallet ?: 0.0
-                            if (userWallet >= perfume.prezzo) {
-                                isProcessing = true
-
-                                // 1. Crea l'ordine nel database
-                                userViewModel.createOrder(
-                                    perfume = perfume,
-                                    distributorId = distributorId,
-                                    distributorName = distributor.nome,
-                                    onSuccess = { pin ->
-                                        generatedPin = pin
-
-                                        // 2. Scala l'inventario
-                                        distributorViewModel.decrementInventory(
-                                            distributorId = distributorId,
-                                            perfumeId = perfumeId,
-                                            onSuccess = {
-                                                // 3. Scala il wallet
-                                                userViewModel.rechargeWallet(
-                                                    amount = -perfume.prezzo,
-                                                    onSuccess = {
-                                                        isProcessing = false
-                                                        showSuccessOverlay = true
-                                                    },
-                                                    onError = { error ->
-                                                        isProcessing = false
-                                                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-                                                    }
-                                                )
-                                            },
-                                            onError = { error ->
-                                                isProcessing = false
-                                                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-                                            }
-                                        )
-                                    },
-                                    onError = { error ->
-                                        isProcessing = false
-                                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+        // ModalNavigationDrawer che si apre da DESTRA
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = false,
+                drawerContent = {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        ModalDrawerSheet(
+                            drawerContainerColor = Color.Transparent,
+                            drawerContentColor = Color.Black,
+                            modifier = Modifier.width(300.dp)
+                        ) {
+                            AppDrawerContent(
+                                onCloseClick = {
+                                    scope.launch { drawerState.close() }
+                                },
+                                onInfoClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        // TODO: Naviga a Info
                                     }
-                                )
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    "Saldo insufficiente. Ricarica il wallet.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        }
-                    }
-                )
-            },
-            containerColor = BackgroundColor
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // Immagine grande del profumo
-                PerfumeImageSection(
-                    perfume = perfume,
-                    isFavorite = isFavorite,
-                    onFavoriteClick = { userViewModel.toggleFavorite(perfumeId) }
-                )
-
-                // Contenuto dettagli
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                ) {
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Marca
-                    Text(
-                        text = perfume.marca.uppercase(),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF222222),
-                        letterSpacing = 0.5.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Nome e Prezzo
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Text(
-                            text = perfume.nome,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextPrimary,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        Column(
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Text(
-                                text = "Prezzo",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF634BE6)
-                            )
-                            Text(
-                                text = String.format(Locale.ITALIAN, "%.2f €", perfume.prezzo),
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Black,
-                                color = TextPrimary
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Descrizione
-                    Text(
-                        text = getDescrizioneForPerfume(perfume),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = TextSecondary,
-                        lineHeight = 22.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // SEZIONE: Selezione distributore
-                    Text(
-                        text = "SELEZIONA DISTRIBUTORE",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (availableDistributors.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ErrorRed.copy(alpha = 0.1f))
-                                .padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Nessun distributore disponibile per questo prodotto",
-                                fontSize = 14.sp,
-                                color = ErrorRed,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    } else {
-                        availableDistributors.forEach { distributor ->
-                            DistributorSelectionRow(
-                                distributor = distributor,
-                                disponibilita = distributor.getDisponibilita(perfumeId),
-                                isSelected = selectedDistributorId == distributor.id,
-                                onClick = {
-                                    selectedDistributorId = if (selectedDistributorId == distributor.id) {
-                                        null
-                                    } else {
-                                        distributor.id
+                                },
+                                onContattiClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        // TODO: Naviga a Contatti
+                                    }
+                                },
+                                onDisconnessioneClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        userViewModel.logout()
+                                        navController.navigate(Screen.Login.route) {
+                                            popUpTo(0) { inclusive = true }
+                                        }
                                     }
                                 }
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Area Olfattiva
-                    Text(
-                        text = "AREA OLFATTIVA",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = perfume.categoria.replaceFirstChar { it.uppercase() },
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = TextGray
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Piramide Olfattiva
-                    Text(
-                        text = "PIRAMIDE OLFATTIVA",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    PiramideNotaRow(
-                        label = "Note di testa",
-                        note = perfume.noteOlfattive.noteDiTesta.joinToString(", ") {
-                            it.replaceFirstChar { c -> c.uppercase() }
+                }
+            ) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Scaffold(
+                        topBar = {
+                            DetailTopBar(
+                                onBackClick = { navController.popBackStack() },
+                                onMenuClick = {
+                                    scope.launch { drawerState.open() }
+                                }
+                            )
                         },
-                        backgroundColor = NotaTestaColor
-                    )
+                        bottomBar = {
+                            DetailBottomSection(
+                                navController = navController,
+                                isEnabled = selectedDistributorId != null && !isProcessing,
+                                isProcessing = isProcessing,
+                                onAcquistaClick = {
+                                    val distributorId = selectedDistributorId
+                                    val distributor = selectedDistributor
+                                    if (distributorId != null && distributor != null) {
+                                        val userWallet = currentUser?.wallet ?: 0.0
+                                        if (userWallet >= perfume.prezzo) {
+                                            isProcessing = true
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                                            // 1. Crea l'ordine nel database
+                                            userViewModel.createOrder(
+                                                perfume = perfume,
+                                                distributorId = distributorId,
+                                                distributorName = distributor.nome,
+                                                onSuccess = { pin ->
+                                                    generatedPin = pin
 
-                    PiramideNotaRow(
-                        label = "Note di cuore",
-                        note = perfume.noteOlfattive.noteDiCuore.joinToString(", ") {
-                            it.replaceFirstChar { c -> c.uppercase() }
+                                                    // 2. Scala l'inventario
+                                                    distributorViewModel.decrementInventory(
+                                                        distributorId = distributorId,
+                                                        perfumeId = perfumeId,
+                                                        onSuccess = {
+                                                            // 3. Scala il wallet
+                                                            userViewModel.rechargeWallet(
+                                                                amount = -perfume.prezzo,
+                                                                onSuccess = {
+                                                                    isProcessing = false
+                                                                    showSuccessOverlay = true
+                                                                },
+                                                                onError = { error ->
+                                                                    isProcessing = false
+                                                                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            )
+                                                        },
+                                                        onError = { error ->
+                                                            isProcessing = false
+                                                            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    )
+                                                },
+                                                onError = { error ->
+                                                    isProcessing = false
+                                                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                "Saldo insufficiente. Ricarica il wallet.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    }
+                                }
+                            )
                         },
-                        backgroundColor = NotaCuoreColor
-                    )
+                        containerColor = BackgroundColor
+                    ) { paddingValues ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            // Immagine grande del profumo
+                            PerfumeImageSection(
+                                perfume = perfume,
+                                isFavorite = isFavorite,
+                                onFavoriteClick = {
+                                    favoriteWasAdded = !isFavorite
+                                    userViewModel.toggleFavorite(perfumeId)
+                                    showFavoriteOverlay = true
+                                }
+                            )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                            // Contenuto dettagli
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                            ) {
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                    PiramideNotaRow(
-                        label = "Note di fondo",
-                        note = perfume.noteOlfattive.noteDiFondo.joinToString(", ") {
-                            it.replaceFirstChar { c -> c.uppercase() }
-                        },
-                        backgroundColor = NotaFondoColor
-                    )
+                                // Marca
+                                Text(
+                                    text = perfume.marca.uppercase(),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFF222222),
+                                    letterSpacing = 0.5.sp
+                                )
 
-                    Spacer(modifier = Modifier.height(100.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Nome e Prezzo
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Text(
+                                        text = perfume.nome,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = TextPrimary,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    Column(
+                                        horizontalAlignment = Alignment.End
+                                    ) {
+                                        Text(
+                                            text = "Prezzo",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFF634BE6)
+                                        )
+                                        Text(
+                                            text = String.format(Locale.ITALIAN, "%.2f €", perfume.prezzo),
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = TextPrimary
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Descrizione
+                                Text(
+                                    text = getDescrizioneForPerfume(perfume),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = TextSecondary,
+                                    lineHeight = 22.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                // SEZIONE: Selezione distributore
+                                Text(
+                                    text = "SELEZIONA DISTRIBUTORE",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextPrimary
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                if (availableDistributors.isEmpty()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(ErrorRed.copy(alpha = 0.1f))
+                                            .padding(16.dp)
+                                    ) {
+                                        Text(
+                                            text = "Nessun distributore disponibile per questo prodotto",
+                                            fontSize = 14.sp,
+                                            color = ErrorRed,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                } else {
+                                    availableDistributors.forEach { distributor ->
+                                        DistributorSelectionRow(
+                                            distributor = distributor,
+                                            disponibilita = distributor.getDisponibilita(perfumeId),
+                                            isSelected = selectedDistributorId == distributor.id,
+                                            onClick = {
+                                                selectedDistributorId = if (selectedDistributorId == distributor.id) {
+                                                    null
+                                                } else {
+                                                    distributor.id
+                                                }
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                // Area Olfattiva
+                                Text(
+                                    text = "AREA OLFATTIVA",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextPrimary
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = perfume.categoria.replaceFirstChar { it.uppercase() },
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = TextGray
+                                )
+
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                // Piramide Olfattiva
+                                Text(
+                                    text = "PIRAMIDE OLFATTIVA",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextPrimary
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                PiramideNotaRow(
+                                    label = "Note di testa",
+                                    note = perfume.noteOlfattive.noteDiTesta.joinToString(", ") {
+                                        it.replaceFirstChar { c -> c.uppercase() }
+                                    },
+                                    backgroundColor = NotaTestaColor
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                PiramideNotaRow(
+                                    label = "Note di cuore",
+                                    note = perfume.noteOlfattive.noteDiCuore.joinToString(", ") {
+                                        it.replaceFirstChar { c -> c.uppercase() }
+                                    },
+                                    backgroundColor = NotaCuoreColor
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                PiramideNotaRow(
+                                    label = "Note di fondo",
+                                    note = perfume.noteOlfattive.noteDiFondo.joinToString(", ") {
+                                        it.replaceFirstChar { c -> c.uppercase() }
+                                    },
+                                    backgroundColor = NotaFondoColor
+                                )
+
+                                Spacer(modifier = Modifier.height(100.dp))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -361,6 +425,13 @@ fun PerfumeDetailScreen(
                 showSuccessOverlay = false
                 navController.popBackStack()
             }
+        )
+
+        // Overlay aggiunto/rimosso preferiti
+        FavoriteAddedOverlay(
+            visible = showFavoriteOverlay,
+            wasAdded = favoriteWasAdded,
+            onDismiss = { showFavoriteOverlay = false }
         )
     }
 }
@@ -453,84 +524,171 @@ fun PurchaseSuccessOverlay(
 ) {
     LaunchedEffect(visible) {
         if (visible) {
-            delay(4000) // Più tempo per vedere il PIN
+            delay(3500) // Scompare dopo 3.5 secondi
+            onDismiss()
+        }
+    }
+
+    if (visible) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f)),
+            contentAlignment = Alignment.Center
+        ) {
+            // Card stile badge
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                // Card principale
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 30.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F6FA)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 40.dp, bottom = 24.dp, start = 16.dp, end = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Titolo
+                        Text(
+                            text = "Acquisto completato!",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF2A282F)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Nome profumo
+                        Text(
+                            text = perfumeName,
+                            fontSize = 14.sp,
+                            color = TextSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // PIN Label
+                        Text(
+                            text = "Il tuo PIN di ritiro:",
+                            fontSize = 14.sp,
+                            color = TextSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // PIN Box
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SecondaryColor.copy(alpha = 0.3f))
+                                .padding(horizontal = 24.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                text = pin,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryColor,
+                                letterSpacing = 4.sp
+                            )
+                        }
+                    }
+                }
+
+                // Icona check che sporge sopra la card
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(SecondaryColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = "Completato",
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Overlay compatto per aggiunta/rimozione preferiti
+ * Scompare automaticamente dopo 1.5 secondi
+ */
+@Composable
+fun FavoriteAddedOverlay(
+    visible: Boolean,
+    wasAdded: Boolean,
+    onDismiss: () -> Unit
+) {
+    LaunchedEffect(visible) {
+        if (visible) {
+            delay(1500) // Scompare dopo 1.5 secondi
             onDismiss()
         }
     }
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(animationSpec = tween(300)),
-        exit = fadeOut(animationSpec = tween(300))
+        enter = fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.8f, animationSpec = tween(200)),
+        exit = fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.8f, animationSpec = tween(200))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White),
+                .background(Color.Black.copy(alpha = 0.3f)),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+            // Card compatta
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 48.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F6FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                // Cerchio con check
-                Box(
+                Column(
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(SuccessGreen.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 32.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = "Completato",
-                        tint = SuccessGreen,
-                        modifier = Modifier.size(50.dp)
-                    )
-                }
+                    // Icona cuore
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(SecondaryColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (wasAdded) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Text(
-                    text = "Acquisto completato!",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = perfumeName,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TextSecondary
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // PIN
-                Text(
-                    text = "Il tuo PIN:",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = TextSecondary
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(PrimaryColor.copy(alpha = 0.1f))
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
-                ) {
+                    // Testo
                     Text(
-                        text = pin,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryColor,
-                        letterSpacing = 4.sp
+                        text = if (wasAdded) "Aggiunto ai preferiti!" else "Rimosso dai preferiti",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF2A282F)
                     )
                 }
             }

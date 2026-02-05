@@ -1,5 +1,7 @@
 package com.example.aromabox.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -19,18 +22,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.aromabox.data.model.Perfume
+import com.example.aromabox.ui.components.AppDrawerContent
 import com.example.aromabox.ui.components.CommonTopBar
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.viewmodels.CatalogViewModel
 import com.example.aromabox.ui.viewmodels.UserViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 private val PageBackground = Color(0xFFF2F2F2)
@@ -50,6 +58,10 @@ fun RecommendedScreen(
     val currentUser by userViewModel.currentUser.collectAsState()
     val perfumes by catalogViewModel.perfumes.collectAsState()
     val profiloOlfattivo = currentUser?.profiloOlfattivo
+    val scope = rememberCoroutineScope()
+
+    // Stato del drawer
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val recommendedPerfumes = remember(profiloOlfattivo, perfumes) {
         catalogViewModel.getRecommendedPerfumes(profiloOlfattivo)
@@ -57,112 +69,252 @@ fun RecommendedScreen(
 
     val favoriteIds = currentUser?.preferiti ?: emptyList()
 
-    Scaffold(
-        topBar = {
-            CommonTopBar(
-                onMenuClick = { /* TODO: Menu */ }
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                selectedScreen = Screen.Home,
-                navController = navController
-            )
-        },
-        containerColor = PageBackground
-    ) { paddingValues ->
-        Column(
+    // Stato per overlay preferiti
+    var showFavoriteOverlay by remember { mutableStateOf(false) }
+    var favoriteWasAdded by remember { mutableStateOf(true) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ModalNavigationDrawer che si apre da DESTRA
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = false,
+                drawerContent = {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        ModalDrawerSheet(
+                            drawerContainerColor = Color.Transparent,
+                            drawerContentColor = Color.Black,
+                            modifier = Modifier.width(300.dp)
+                        ) {
+                            AppDrawerContent(
+                                onCloseClick = {
+                                    scope.launch { drawerState.close() }
+                                },
+                                onInfoClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        // TODO: Naviga a Info
+                                    }
+                                },
+                                onContattiClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        // TODO: Naviga a Contatti
+                                    }
+                                },
+                                onDisconnessioneClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        userViewModel.logout()
+                                        navController.navigate(Screen.Login.route) {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            ) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Scaffold(
+                        topBar = {
+                            CommonTopBar(
+                                onMenuClick = {
+                                    scope.launch { drawerState.open() }
+                                }
+                            )
+                        },
+                        bottomBar = {
+                            BottomNavigationBar(
+                                selectedScreen = Screen.Home,
+                                navController = navController
+                            )
+                        },
+                        containerColor = PageBackground
+                    ) { paddingValues ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                        ) {
+                            // Header con freccia indietro
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                            ) {
+                                // Freccia indietro
+                                IconButton(
+                                    onClick = {
+                                        navController.navigate(Screen.Home.route) {
+                                            popUpTo(Screen.Home.route) { inclusive = true }
+                                        }
+                                    },
+                                    modifier = Modifier.align(Alignment.CenterStart)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Torna alla Home",
+                                        tint = Color.Black
+                                    )
+                                }
+                            }
+
+                            // Titolo e sottotitolo
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Grazie per le tue risposte!",
+                                    fontSize = 25.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = "Ecco le fragranze più adatte ai tuoi gusti\npresenti nel distributore",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = TextBody,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 23.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Griglia profumi consigliati
+                            if (recommendedPerfumes.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Nessun profumo trovato.\nProva a rifare il quiz selezionando più note!",
+                                        fontSize = 16.sp,
+                                        color = NeutralColor,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    contentPadding = PaddingValues(
+                                        start = 6.dp,
+                                        end = 6.dp,
+                                        bottom = 16.dp
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(recommendedPerfumes) { perfume ->
+                                        val isFavorite = favoriteIds.contains(perfume.id)
+                                        RecommendedPerfumeCard(
+                                            perfume = perfume,
+                                            isFavorite = isFavorite,
+                                            onFavoriteClick = {
+                                                favoriteWasAdded = !isFavorite
+                                                userViewModel.toggleFavorite(perfume.id)
+                                                showFavoriteOverlay = true
+                                            },
+                                            onClick = {
+                                                navController.navigate(Screen.PerfumeDetail.createRoute(perfume.id))
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Overlay aggiunto/rimosso preferiti
+        RecommendedFavoriteOverlay(
+            visible = showFavoriteOverlay,
+            wasAdded = favoriteWasAdded,
+            onDismiss = { showFavoriteOverlay = false }
+        )
+    }
+}
+
+/**
+ * Overlay compatto per aggiunta/rimozione preferiti
+ * Scompare automaticamente dopo 1.5 secondi
+ */
+@Composable
+fun RecommendedFavoriteOverlay(
+    visible: Boolean,
+    wasAdded: Boolean,
+    onDismiss: () -> Unit
+) {
+    LaunchedEffect(visible) {
+        if (visible) {
+            delay(1500) // Scompare dopo 1.5 secondi
+            onDismiss()
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.8f, animationSpec = tween(200)),
+        exit = fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.8f, animationSpec = tween(200))
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .background(Color.Black.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
         ) {
-            // Header con freccia indietro
-            Box(
+            // Card compatta
+            Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .padding(horizontal = 48.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F6FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                // Freccia indietro
-                IconButton(
-                    onClick = { navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
-                    }},
-                    modifier = Modifier.align(Alignment.CenterStart)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Torna alla Home",
-                        tint = Color.Black
-                    )
-                }
-            }
-
-            // Titolo e sottotitolo
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Grazie per le tue risposte!",
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Ecco le fragranze più adatte ai tuoi gusti\npresenti nel distributore",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = TextBody,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 23.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Griglia profumi consigliati
-            if (recommendedPerfumes.isEmpty()) {
-                Box(
+                Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 32.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Nessun profumo trovato.\nProva a rifare il quiz selezionando più note!",
-                        fontSize = 16.sp,
-                        color = NeutralColor,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(
-                        start = 6.dp,
-                        end = 6.dp,
-                        bottom = 16.dp
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(recommendedPerfumes) { perfume ->
-                        RecommendedPerfumeCard(
-                            perfume = perfume,
-                            isFavorite = favoriteIds.contains(perfume.id),
-                            onFavoriteClick = { userViewModel.toggleFavorite(perfume.id) },
-                            onClick = {
-                                navController.navigate(Screen.PerfumeDetail.createRoute(perfume.id))
-                            }
+                    // Icona cuore
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(SecondaryColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (wasAdded) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Testo
+                    Text(
+                        text = if (wasAdded) "Aggiunto ai preferiti!" else "Rimosso dai preferiti",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF2A282F)
+                    )
                 }
             }
         }

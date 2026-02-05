@@ -64,10 +64,9 @@ fun BadgeGridContent(
     // Raggruppa i badge per categoria
     val badgesByCategory = badgesToShow.groupBy { it.category }
 
-    // Ordine delle categorie come da Figma
+    // Ordine delle categorie (senza AMBASSADOR)
     val categoryOrder = listOf(
         BadgeCategory.APPRENDISTA.name,
-        BadgeCategory.AMBASSADOR.name,
         BadgeCategory.TESTER.name,
         BadgeCategory.ESPLORATORE.name
     )
@@ -180,21 +179,26 @@ fun BadgeItem(
 
 /**
  * Dialog dettaglio badge (quando si clicca su un badge)
+ * L'icona sporge sopra la card senza coprire il titolo
  */
 @Composable
 fun BadgeDetailDialog(
     badge: Badge,
     onDismiss: () -> Unit
 ) {
+    val grayscaleMatrix = ColorMatrix().apply { setToSaturation(0f) }
+
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 30.dp)
+                .padding(horizontal = 16.dp)
         ) {
-            // Card principale
+            // Card principale - con padding top per lasciare spazio all'icona
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 30.dp), // Spazio per metà icona che sporge
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = BadgeCardBg),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -223,7 +227,7 @@ fun BadgeDetailDialog(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp)
                         ) {
                             // Icona stato completamento
                             Box(
@@ -253,7 +257,8 @@ fun BadgeDetailDialog(
                                 text = badge.descrizione,
                                 fontSize = 14.sp,
                                 color = BadgeDescColor,
-                                textAlign = TextAlign.Start
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier.weight(1f)
                             )
                         }
 
@@ -299,14 +304,11 @@ fun BadgeDetailDialog(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .offset(y = 0.dp)
                     .size(60.dp)
                     .clip(CircleShape)
                     .background(BadgeIconBg),
                 contentAlignment = Alignment.Center
             ) {
-                val grayscaleMatrix = ColorMatrix().apply { setToSaturation(0f) }
-
                 Image(
                     painter = painterResource(id = R.drawable.beautyicon),
                     contentDescription = null,

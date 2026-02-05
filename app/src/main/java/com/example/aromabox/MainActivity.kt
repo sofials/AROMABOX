@@ -173,12 +173,13 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
         }
         // === FINE FILTRI ===
 
-        // ✅ Distributori - ora passa anche catalogViewModel
+        // ✅ Distributori - ora passa anche userViewModel per il drawer
         composable(Screen.Distributori.route) {
             DistributoriScreen(
                 navController = navController,
                 distributorViewModel = distributorViewModel,
-                catalogViewModel = catalogViewModel
+                catalogViewModel = catalogViewModel,
+                userViewModel = userViewModel
             )
         }
 

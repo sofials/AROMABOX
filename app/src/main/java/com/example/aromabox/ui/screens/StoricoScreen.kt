@@ -22,9 +22,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,6 +35,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.aromabox.R
 import com.example.aromabox.data.model.Order
+import com.example.aromabox.ui.components.AppDrawerContent
 import com.example.aromabox.ui.components.CommonTopBar
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.theme.Primary
@@ -40,8 +43,8 @@ import com.example.aromabox.ui.theme.Secondary
 import com.example.aromabox.ui.viewmodels.StoricoTab
 import com.example.aromabox.ui.viewmodels.StoricoViewModel
 import com.example.aromabox.ui.viewmodels.UserViewModel
+import kotlinx.coroutines.launch
 
-// Colori dal design Figma
 private val BackgroundColor = Color(0xFFF2F2F2)
 private val CardBackgroundColor = Color(0xFFF7F6FA)
 private val TextPrimary = Color(0xFF1E1E1E)
@@ -60,7 +63,9 @@ fun StoricoScreen(
     val isLoading by storicoViewModel.isLoading.collectAsState()
     val selectedTab by storicoViewModel.selectedTab.collectAsState()
 
-    // Filtra gli ordini in base al tab selezionato
+    val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
     val filteredOrders = remember(orders, selectedTab) {
         when (selectedTab) {
             StoricoTab.DA_RITIRARE -> orders.filter { !it.ritirato }
@@ -68,78 +73,109 @@ fun StoricoScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            CommonTopBar(
-                onMenuClick = { /* TODO: Menu */ }
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                selectedScreen = Screen.Storico,
-                navController = navController
-            )
-        },
-        containerColor = BackgroundColor
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Titolo
-            Text(
-                text = "Ecco lo storico dei tuoi acquisti!",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
-            )
-
-            // Tab Pills (Da ritirare / Ritirati)
-            TabPills(
-                selectedTab = selectedTab,
-                countDaRitirare = orders.count { !it.ritirato },
-                countRitirati = orders.count { it.ritirato },
-                onTabSelected = { storicoViewModel.selectTab(it) },
-                modifier = Modifier.padding(horizontal = 17.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Lista ordini
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Primary)
-                }
-            } else if (filteredOrders.isEmpty()) {
-                EmptyStateMessage(selectedTab = selectedTab)
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 17.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(
-                        items = filteredOrders,
-                        key = { it.orderId }
-                    ) { order ->
-                        OrderCard(
-                            order = order,
-                            showPin = selectedTab == StoricoTab.DA_RITIRARE,
-                            onClick = {
-                                // Naviga ai dettagli del profumo
-                                navController.navigate(Screen.PerfumeDetail.createRoute(order.perfumeId))
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = false,
+            drawerContent = {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    ModalDrawerSheet(
+                        drawerContainerColor = Color.Transparent,
+                        drawerContentColor = Color.Black,
+                        modifier = Modifier.width(300.dp)
+                    ) {
+                        AppDrawerContent(
+                            onCloseClick = { scope.launch { drawerState.close() } },
+                            onInfoClick = { scope.launch { drawerState.close() } },
+                            onContattiClick = { scope.launch { drawerState.close() } },
+                            onDisconnessioneClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    userViewModel.logout()
+                                    navController.navigate(Screen.Login.route) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
                             }
                         )
                     }
+                }
+            }
+        ) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Scaffold(
+                    topBar = {
+                        CommonTopBar(
+                            onMenuClick = { scope.launch { drawerState.open() } },
+                            onLogoClick = {
+                                navController.navigate(Screen.Home.route) {
+                                    popUpTo(Screen.Home.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    },
+                    bottomBar = {
+                        BottomNavigationBar(
+                            selectedScreen = Screen.Storico,
+                            navController = navController
+                        )
+                    },
+                    containerColor = BackgroundColor
+                ) { paddingValues ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                    ) {
+                        Text(
+                            text = "Ecco lo storico dei tuoi acquisti!",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
+                        )
 
-                    // Spazio extra in fondo
-                    item {
+                        TabPills(
+                            selectedTab = selectedTab,
+                            countDaRitirare = orders.count { !it.ritirato },
+                            countRitirati = orders.count { it.ritirato },
+                            onTabSelected = { storicoViewModel.selectTab(it) },
+                            modifier = Modifier.padding(horizontal = 17.dp)
+                        )
+
                         Spacer(modifier = Modifier.height(16.dp))
+
+                        if (isLoading) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = Primary)
+                            }
+                        } else if (filteredOrders.isEmpty()) {
+                            EmptyStateMessage(selectedTab = selectedTab)
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 17.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(
+                                    items = filteredOrders,
+                                    key = { it.orderId }
+                                ) { order ->
+                                    OrderCard(
+                                        order = order,
+                                        showPin = selectedTab == StoricoTab.DA_RITIRARE,
+                                        onClick = {
+                                            navController.navigate(Screen.PerfumeDetail.createRoute(order.perfumeId))
+                                        }
+                                    )
+                                }
+
+                                item { Spacer(modifier = Modifier.height(16.dp)) }
+                            }
+                        }
                     }
                 }
             }
@@ -147,9 +183,6 @@ fun StoricoScreen(
     }
 }
 
-/**
- * Tab Pills per filtrare tra "Da ritirare" e "Ritirati"
- */
 @Composable
 private fun TabPills(
     selectedTab: StoricoTab,
@@ -162,7 +195,6 @@ private fun TabPills(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Tab "Da ritirare"
         TabPill(
             text = "Da ritirare",
             count = countDaRitirare,
@@ -170,8 +202,6 @@ private fun TabPills(
             onClick = { onTabSelected(StoricoTab.DA_RITIRARE) },
             modifier = Modifier.weight(1f)
         )
-
-        // Tab "Ritirati"
         TabPill(
             text = "Ritirati",
             count = countRitirati,
@@ -182,9 +212,6 @@ private fun TabPills(
     }
 }
 
-/**
- * Singolo Tab Pill
- */
 @Composable
 private fun TabPill(
     text: String,
@@ -222,8 +249,6 @@ private fun TabPill(
 
             if (count > 0) {
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // Badge con conteggio
                 Box(
                     modifier = Modifier
                         .size(24.dp)
@@ -243,9 +268,6 @@ private fun TabPill(
     }
 }
 
-/**
- * Card per singolo ordine
- */
 @Composable
 private fun OrderCard(
     order: Order,
@@ -262,13 +284,11 @@ private fun OrderCard(
             .background(CardBackgroundColor)
             .clickable { onClick() }
     ) {
-        // Riga principale: immagine + dettagli
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
         ) {
-            // Immagine profumo
             Box(
                 modifier = Modifier
                     .width(100.dp)
@@ -289,7 +309,6 @@ private fun OrderCard(
                 )
             }
 
-            // Dettagli ordine
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -297,9 +316,7 @@ private fun OrderCard(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Brand e Nome
                 Column {
-                    // Brand (uppercase, bold)
                     Text(
                         text = order.perfumeBrand.uppercase(),
                         fontSize = 12.sp,
@@ -308,10 +325,7 @@ private fun OrderCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-
                     Spacer(modifier = Modifier.height(2.dp))
-
-                    // Nome profumo
                     Text(
                         text = order.perfumeName,
                         fontSize = 15.sp,
@@ -322,19 +336,14 @@ private fun OrderCard(
                     )
                 }
 
-                // Data e Prezzo su righe separate per evitare troncamento
                 Column {
-                    // Data
                     Text(
                         text = order.getFormattedDate(),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Normal,
                         color = TextSecondary
                     )
-
                     Spacer(modifier = Modifier.height(2.dp))
-
-                    // Prezzo
                     Text(
                         text = order.getFormattedPrice(),
                         fontSize = 14.sp,
@@ -345,7 +354,6 @@ private fun OrderCard(
             }
         }
 
-        // Sezione PIN (solo per ordini da ritirare)
         if (showPin && order.pin.isNotEmpty()) {
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 12.dp),
@@ -360,20 +368,14 @@ private fun OrderCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Label + PIN
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "PIN:",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Normal,
                         color = TextSecondary
                     )
-
                     Spacer(modifier = Modifier.width(8.dp))
-
-                    // PIN con sfondo
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
@@ -390,7 +392,6 @@ private fun OrderCard(
                     }
                 }
 
-                // Bottone copia
                 IconButton(
                     onClick = {
                         clipboardManager.setText(AnnotatedString(order.pin))
@@ -410,18 +411,13 @@ private fun OrderCard(
     }
 }
 
-/**
- * Messaggio quando non ci sono ordini
- */
 @Composable
 private fun EmptyStateMessage(selectedTab: StoricoTab) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 imageVector = if (selectedTab == StoricoTab.DA_RITIRARE)
                     Icons.Outlined.ShoppingBag else Icons.Outlined.CheckCircle,
@@ -429,18 +425,13 @@ private fun EmptyStateMessage(selectedTab: StoricoTab) {
                 modifier = Modifier.size(64.dp),
                 tint = TextSecondary
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Text(
                 text = if (selectedTab == StoricoTab.DA_RITIRARE)
-                    "Nessun ordine da ritirare"
-                else
-                    "Nessun ordine ritirato",
+                    "Nessun ordine da ritirare" else "Nessun ordine ritirato",
                 fontSize = 16.sp,
                 color = TextSecondary
             )
-
             if (selectedTab == StoricoTab.DA_RITIRARE) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -453,9 +444,6 @@ private fun EmptyStateMessage(selectedTab: StoricoTab) {
     }
 }
 
-/**
- * Helper per ottenere la risorsa drawable dal nome
- */
 private fun getDrawableResource(imageUrl: String): Int {
     return when (imageUrl.lowercase().trim()) {
         "perfume_chanel_no5" -> R.drawable.perfume_chanel_no5

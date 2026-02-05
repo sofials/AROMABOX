@@ -5,7 +5,6 @@ package com.example.aromabox.data.model
  */
 enum class BadgeCategory {
     APPRENDISTA,
-    AMBASSADOR,
     TESTER,
     ESPLORATORE
 }
@@ -15,7 +14,6 @@ enum class BadgeCategory {
  */
 enum class BadgeRequirementType {
     ACQUISTI,      // Numero di acquisti presso distributori
-    RECENSIONI,    // Numero di recensioni lasciate
     EROGAZIONI,    // Numero di erogazioni acquistate
     PREFERITI      // Numero di profumi nei preferiti
 }
@@ -31,7 +29,7 @@ data class BadgeDefinition(
     val livello: Int,                    // 1, 2, 3, 4 per badge con più livelli
     val requirementType: BadgeRequirementType,
     val requirementValue: Int,           // Valore richiesto per sbloccare
-    val iconResName: String = "ic_badge_placeholder"  // Nome risorsa drawable
+    val iconResName: String = "beautyicon"  // Nome risorsa drawable
 )
 
 /**
@@ -43,12 +41,12 @@ data class Badge(
     val descrizione: String = "",
     val category: String = "",           // Stringa per Firebase
     val livello: Int = 1,
-    val iconResName: String = "ic_badge_placeholder",
+    val iconResName: String = "beautyicon",
     val dataOttenimento: Long = 0L,
     val isUnlocked: Boolean = false
 ) {
     // Costruttore vuoto per Firebase
-    constructor() : this("", "", "", "", 1, "ic_badge_placeholder", 0L, false)
+    constructor() : this("", "", "", "", 1, "beautyicon", 0L, false)
 
     companion object {
         /**
@@ -84,39 +82,7 @@ object BadgeDefinitions {
             livello = 1,
             requirementType = BadgeRequirementType.ACQUISTI,
             requirementValue = 1,
-            iconResName = "ic_badge_apprendista"
-        ),
-
-        // AMBASSADOR - 3 livelli (recensioni)
-        BadgeDefinition(
-            id = "ambassador_1",
-            nome = "Ambassador",
-            descrizione = "Lascia 1 recensione per un tuo acquisto",
-            category = BadgeCategory.AMBASSADOR,
-            livello = 1,
-            requirementType = BadgeRequirementType.RECENSIONI,
-            requirementValue = 1,
-            iconResName = "ic_badge_ambassador"
-        ),
-        BadgeDefinition(
-            id = "ambassador_2",
-            nome = "Ambassador",
-            descrizione = "Lascia 10 recensioni sui tuoi acquisti",
-            category = BadgeCategory.AMBASSADOR,
-            livello = 2,
-            requirementType = BadgeRequirementType.RECENSIONI,
-            requirementValue = 10,
-            iconResName = "ic_badge_ambassador"
-        ),
-        BadgeDefinition(
-            id = "ambassador_3",
-            nome = "Ambassador",
-            descrizione = "Lascia 100 recensioni sui tuoi acquisti",
-            category = BadgeCategory.AMBASSADOR,
-            livello = 3,
-            requirementType = BadgeRequirementType.RECENSIONI,
-            requirementValue = 100,
-            iconResName = "ic_badge_ambassador"
+            iconResName = "beautyicon"
         ),
 
         // TESTER - 4 livelli (erogazioni)
@@ -128,7 +94,7 @@ object BadgeDefinitions {
             livello = 1,
             requirementType = BadgeRequirementType.EROGAZIONI,
             requirementValue = 1,
-            iconResName = "ic_badge_tester"
+            iconResName = "beautyicon"
         ),
         BadgeDefinition(
             id = "tester_2",
@@ -138,7 +104,7 @@ object BadgeDefinitions {
             livello = 2,
             requirementType = BadgeRequirementType.EROGAZIONI,
             requirementValue = 10,
-            iconResName = "ic_badge_tester"
+            iconResName = "beautyicon"
         ),
         BadgeDefinition(
             id = "tester_3",
@@ -148,7 +114,7 @@ object BadgeDefinitions {
             livello = 3,
             requirementType = BadgeRequirementType.EROGAZIONI,
             requirementValue = 50,
-            iconResName = "ic_badge_tester"
+            iconResName = "beautyicon"
         ),
         BadgeDefinition(
             id = "tester_4",
@@ -158,7 +124,7 @@ object BadgeDefinitions {
             livello = 4,
             requirementType = BadgeRequirementType.EROGAZIONI,
             requirementValue = 100,
-            iconResName = "ic_badge_tester"
+            iconResName = "beautyicon"
         ),
 
         // ESPLORATORE - 2 livelli (preferiti)
@@ -170,7 +136,7 @@ object BadgeDefinitions {
             livello = 1,
             requirementType = BadgeRequirementType.PREFERITI,
             requirementValue = 5,
-            iconResName = "ic_badge_esploratore"
+            iconResName = "beautyicon"
         ),
         BadgeDefinition(
             id = "esploratore_2",
@@ -180,7 +146,7 @@ object BadgeDefinitions {
             livello = 2,
             requirementType = BadgeRequirementType.PREFERITI,
             requirementValue = 10,
-            iconResName = "ic_badge_esploratore"
+            iconResName = "beautyicon"
         )
     )
 

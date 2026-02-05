@@ -1,6 +1,7 @@
 package com.example.aromabox.ui.screens
 
 import com.example.aromabox.ui.components.CommonTopBar
+import com.example.aromabox.ui.components.AppDrawerContent
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -23,9 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -54,54 +57,112 @@ fun HomeScreen(
     userViewModel: UserViewModel = viewModel()
 ) {
     val currentUser by userViewModel.currentUser.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    // Stato del drawer
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
     }
 
-    Scaffold(
-        topBar = {
-            CommonTopBar(
-                onMenuClick = { /* TODO: Menu */ }
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                selectedScreen = Screen.Home,
-                navController = navController
-            )
-        },
-        containerColor = PageBackground
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    // ModalNavigationDrawer che si apre da DESTRA
+    // Per aprire da destra, invertiamo la direzione del layout
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = false,
+            drawerContent = {
+                // Reimposta LTR per il contenuto del drawer
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    ModalDrawerSheet(
+                        drawerContainerColor = Color.Transparent,
+                        drawerContentColor = Color.Black,
+                        modifier = Modifier.width(300.dp)
+                    ) {
+                        AppDrawerContent(
+                            onCloseClick = {
+                                scope.launch { drawerState.close() }
+                            },
+                            onInfoClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    // TODO: Naviga a Info
+                                }
+                            },
+                            onContattiClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    // TODO: Naviga a Contatti
+                                }
+                            },
+                            onDisconnessioneClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    userViewModel.logout()
+                                    navController.navigate(Screen.Login.route) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
         ) {
-            // Card Saldo
-            SaldoCard(
-                saldo = currentUser?.wallet ?: 0.0,
-                onRicaricaClick = { navController.navigate(Screen.Recharge.route) }
-            )
+            // Reimposta LTR per il contenuto principale
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Scaffold(
+                    topBar = {
+                        CommonTopBar(
+                            onMenuClick = {
+                                scope.launch { drawerState.open() }
+                            },
+                            onLogoClick = {
+                                // TODO: Azione al click sul logo
+                            }
+                        )
+                    },
+                    bottomBar = {
+                        BottomNavigationBar(
+                            selectedScreen = Screen.Home,
+                            navController = navController
+                        )
+                    },
+                    containerColor = PageBackground
+                ) { paddingValues ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Card Saldo
+                        SaldoCard(
+                            saldo = currentUser?.wallet ?: 0.0,
+                            onRicaricaClick = { navController.navigate(Screen.Recharge.route) }
+                        )
 
-            // Card Collegati al Distributore
-            ConnectDistributorCard()
+                        // Card Collegati al Distributore
+                        ConnectDistributorCard()
 
-            // Controlla se il quiz è completo
-            val hasCompletedQuiz = currentUser?.profiloOlfattivo != null
+                        // Controlla se il quiz è completo
+                        val hasCompletedQuiz = currentUser?.profiloOlfattivo != null
 
-            if (!hasCompletedQuiz) {
-                QuizCard(
-                    onClick = { navController.navigate(Screen.Quiz.route) }
-                )
-            } else {
-                // Card Profumi Consigliati (dopo quiz completato)
-                RecommendedCard(
-                    onClick = { navController.navigate(Screen.Recommended.route) }
-                )
+                        if (!hasCompletedQuiz) {
+                            QuizCard(
+                                onClick = { navController.navigate(Screen.Quiz.route) }
+                            )
+                        } else {
+                            // Card Profumi Consigliati (dopo quiz completato)
+                            RecommendedCard(
+                                onClick = { navController.navigate(Screen.Recommended.route) }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

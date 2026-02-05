@@ -21,15 +21,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.aromabox.ui.components.AppDrawerContent
 import com.example.aromabox.ui.components.CommonTopBar
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.viewmodels.UserViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 private val PageBackground = Color(0xFFF2F2F2)
@@ -60,6 +64,10 @@ fun RechargeScreen(
 ) {
     val context = LocalContext.current
     val currentUser by userViewModel.currentUser.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    // Stato del drawer
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     var selectedAmount by remember { mutableStateOf<Double?>(null) }
     var selectedPayment by remember { mutableStateOf<PaymentMethod?>(null) }
@@ -67,215 +75,263 @@ fun RechargeScreen(
     var showSuccessOverlay by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                CommonTopBar(
-                    onMenuClick = { /* TODO: Menu */ }
-                )
-            },
-            bottomBar = {
-                BottomNavigationBar(
-                    selectedScreen = Screen.Home,
-                    navController = navController
-                )
-            },
-            containerColor = PageBackground
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 17.dp)
-            ) {
-                // Freccia indietro
-                IconButton(
-                    onClick = { navController.popBackStack() },
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Indietro",
-                        tint = Color.Black
-                    )
-                }
-
-                // Card superiore (grigia) - Saldo + Selezione importo
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
-                    colors = CardDefaults.cardColors(containerColor = CardHeaderBg),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 36.dp, horizontal = 31.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // Saldo disponibile
-                        Text(
-                            text = "SALDO DISPONIBILE",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = TextSecondary,
-                            letterSpacing = 1.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = String.format(Locale.ITALIAN, "%.2f €", currentUser?.wallet ?: 0.0),
-                            fontSize = 33.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White
-                        )
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        // Seleziona importo
-                        Text(
-                            text = "Seleziona l'importo",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = PageBackground
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Bottoni importo
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+        // ModalNavigationDrawer che si apre da DESTRA
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = false,
+                drawerContent = {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        ModalDrawerSheet(
+                            drawerContainerColor = Color.Transparent,
+                            drawerContentColor = Color.Black,
+                            modifier = Modifier.width(300.dp)
                         ) {
-                            rechargeAmounts.forEach { amount ->
-                                AmountButton(
-                                    amount = amount,
-                                    isSelected = selectedAmount == amount,
-                                    onClick = { selectedAmount = amount }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Card inferiore (bianca) - Metodi di pagamento
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
-                    colors = CardDefaults.cardColors(containerColor = CardBg),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 31.dp, horizontal = 41.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Ricarica con",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = CardHeaderBg
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Prima riga: PayPal e Google Pay
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            PaymentMethodButton(
-                                method = PaymentMethod.PAYPAL,
-                                isSelected = selectedPayment == PaymentMethod.PAYPAL,
-                                onClick = { selectedPayment = PaymentMethod.PAYPAL },
-                                modifier = Modifier.weight(1f)
-                            )
-                            PaymentMethodButton(
-                                method = PaymentMethod.GOOGLE_PAY,
-                                isSelected = selectedPayment == PaymentMethod.GOOGLE_PAY,
-                                onClick = { selectedPayment = PaymentMethod.GOOGLE_PAY },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Apple Pay
-                        PaymentMethodButton(
-                            method = PaymentMethod.APPLE_PAY,
-                            isSelected = selectedPayment == PaymentMethod.APPLE_PAY,
-                            onClick = { selectedPayment = PaymentMethod.APPLE_PAY },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Carta
-                        PaymentMethodButton(
-                            method = PaymentMethod.CARD,
-                            isSelected = selectedPayment == PaymentMethod.CARD,
-                            onClick = { selectedPayment = PaymentMethod.CARD },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(40.dp))
-
-                        // Bottone Prosegui
-                        Button(
-                            onClick = {
-                                if (selectedAmount != null && selectedPayment != null) {
-                                    isProcessing = true
-                                    userViewModel.rechargeWallet(
-                                        amount = selectedAmount!!,
-                                        onSuccess = {
-                                            isProcessing = false
-                                            showSuccessOverlay = true
-                                        },
-                                        onError = { error ->
-                                            isProcessing = false
-                                            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                            AppDrawerContent(
+                                onCloseClick = {
+                                    scope.launch { drawerState.close() }
+                                },
+                                onInfoClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        // TODO: Naviga a Info
+                                    }
+                                },
+                                onContattiClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        // TODO: Naviga a Contatti
+                                    }
+                                },
+                                onDisconnessioneClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        userViewModel.logout()
+                                        navController.navigate(Screen.Login.route) {
+                                            popUpTo(0) { inclusive = true }
                                         }
-                                    )
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Seleziona importo e metodo di pagamento",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    }
                                 }
-                            },
-                            modifier = Modifier
-                                .width(144.dp)
-                                .height(37.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryColor,
-                                disabledContainerColor = PrimaryColor.copy(alpha = 0.5f)
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                            enabled = !isProcessing
-                        ) {
-                            if (isProcessing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Text(
-                                    text = "Prosegui",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    color = Color.White
-                                )
-                            }
+                            )
                         }
                     }
                 }
+            ) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Scaffold(
+                        topBar = {
+                            CommonTopBar(
+                                onMenuClick = {
+                                    scope.launch { drawerState.open() }
+                                }
+                            )
+                        },
+                        bottomBar = {
+                            BottomNavigationBar(
+                                selectedScreen = Screen.Home,
+                                navController = navController
+                            )
+                        },
+                        containerColor = PageBackground
+                    ) { paddingValues ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 17.dp)
+                        ) {
+                            // Freccia indietro
+                            IconButton(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Indietro",
+                                    tint = Color.Black
+                                )
+                            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                            // Card superiore (grigia) - Saldo + Selezione importo
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+                                colors = CardDefaults.cardColors(containerColor = CardHeaderBg),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 36.dp, horizontal = 31.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    // Saldo disponibile
+                                    Text(
+                                        text = "SALDO DISPONIBILE",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = TextSecondary,
+                                        letterSpacing = 1.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Text(
+                                        text = String.format(Locale.ITALIAN, "%.2f €", currentUser?.wallet ?: 0.0),
+                                        fontSize = 33.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White
+                                    )
+
+                                    Spacer(modifier = Modifier.height(32.dp))
+
+                                    // Seleziona importo
+                                    Text(
+                                        text = "Seleziona l'importo",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = PageBackground
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    // Bottoni importo
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                    ) {
+                                        rechargeAmounts.forEach { amount ->
+                                            AmountButton(
+                                                amount = amount,
+                                                isSelected = selectedAmount == amount,
+                                                onClick = { selectedAmount = amount }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Card inferiore (bianca) - Metodi di pagamento
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
+                                colors = CardDefaults.cardColors(containerColor = CardBg),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 31.dp, horizontal = 41.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Ricarica con",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = CardHeaderBg
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    // Prima riga: PayPal e Google Pay
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        PaymentMethodButton(
+                                            method = PaymentMethod.PAYPAL,
+                                            isSelected = selectedPayment == PaymentMethod.PAYPAL,
+                                            onClick = { selectedPayment = PaymentMethod.PAYPAL },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        PaymentMethodButton(
+                                            method = PaymentMethod.GOOGLE_PAY,
+                                            isSelected = selectedPayment == PaymentMethod.GOOGLE_PAY,
+                                            onClick = { selectedPayment = PaymentMethod.GOOGLE_PAY },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Apple Pay
+                                    PaymentMethodButton(
+                                        method = PaymentMethod.APPLE_PAY,
+                                        isSelected = selectedPayment == PaymentMethod.APPLE_PAY,
+                                        onClick = { selectedPayment = PaymentMethod.APPLE_PAY },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Carta
+                                    PaymentMethodButton(
+                                        method = PaymentMethod.CARD,
+                                        isSelected = selectedPayment == PaymentMethod.CARD,
+                                        onClick = { selectedPayment = PaymentMethod.CARD },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Spacer(modifier = Modifier.height(40.dp))
+
+                                    // Bottone Prosegui
+                                    Button(
+                                        onClick = {
+                                            if (selectedAmount != null && selectedPayment != null) {
+                                                isProcessing = true
+                                                userViewModel.rechargeWallet(
+                                                    amount = selectedAmount!!,
+                                                    onSuccess = {
+                                                        isProcessing = false
+                                                        showSuccessOverlay = true
+                                                    },
+                                                    onError = { error ->
+                                                        isProcessing = false
+                                                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                                    }
+                                                )
+                                            } else {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Seleziona importo e metodo di pagamento",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .width(144.dp)
+                                            .height(37.dp),
+                                        shape = RoundedCornerShape(20.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = PrimaryColor,
+                                            disabledContainerColor = PrimaryColor.copy(alpha = 0.5f)
+                                        ),
+                                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                                        enabled = !isProcessing
+                                    ) {
+                                        if (isProcessing) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                color = Color.White,
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "Prosegui",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Normal,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                    }
+                }
             }
         }
 

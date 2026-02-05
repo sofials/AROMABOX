@@ -1,5 +1,7 @@
 package com.example.aromabox.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -20,18 +23,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.aromabox.data.model.Perfume
+import com.example.aromabox.ui.components.AppDrawerContent
 import com.example.aromabox.ui.components.CommonTopBar
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.viewmodels.CatalogViewModel
 import com.example.aromabox.ui.viewmodels.UserViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 // Colori dal Figma
@@ -51,99 +58,209 @@ fun CatalogScreen(
     catalogViewModel: CatalogViewModel,
     userViewModel: UserViewModel,
 ) {
-    // StateFlow observers
     val perfumes by catalogViewModel.perfumes.collectAsState()
     val isLoading by catalogViewModel.isLoading.collectAsState()
     val selectedCategory by catalogViewModel.selectedCategory.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
 
-    // Stato locale per la ricerca
     var searchQuery by remember { mutableStateOf("") }
+    var showFavoriteOverlay by remember { mutableStateOf(false) }
+    var favoriteWasAdded by remember { mutableStateOf(true) }
 
-    // Preferiti dell'utente
     val favoriteIds = currentUser?.preferiti ?: emptyList()
+
+    // Drawer state
+    val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
     }
 
-    Scaffold(
-        topBar = {
-            CommonTopBar(
-                onMenuClick = { /* TODO: Menu */ }
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                selectedScreen = Screen.Catalog,
-                navController = navController
-            )
-        },
-        containerColor = PageBackground
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // ✅ NUOVA Barra di ricerca con Filtri in alto a destra
-            SearchBarWithFilters(
-                searchQuery = searchQuery,
-                onSearchChange = { searchQuery = it },
-                onFilterClick = {
-                    navController.navigate(Screen.Filters.route)
-                }
-            )
-
-            // Contenuto principale
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = PrimaryColor)
-                }
-            } else {
-                // Filtra per ricerca
-                val filteredPerfumes = catalogViewModel.getFilteredPerfumes().filter {
-                    searchQuery.isEmpty() ||
-                            it.nome.contains(searchQuery, ignoreCase = true) ||
-                            it.marca.contains(searchQuery, ignoreCase = true)
-                }
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 5.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(
-                        start = 0.dp,
-                        end = 0.dp,
-                        top = 8.dp,
-                        bottom = 16.dp
-                    )
-                ) {
-                    items(filteredPerfumes) { perfume ->
-                        PerfumeCardFigma(
-                            perfume = perfume,
-                            isFavorite = favoriteIds.contains(perfume.id),
-                            onFavoriteClick = {
-                                userViewModel.toggleFavorite(perfume.id)
-                            },
-                            onClick = {
-                                navController.navigate("perfume_detail/${perfume.id}")
+    // ModalNavigationDrawer che si apre da DESTRA
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = false,
+            drawerContent = {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    ModalDrawerSheet(
+                        drawerContainerColor = Color.Transparent,
+                        drawerContentColor = Color.Black,
+                        modifier = Modifier.width(300.dp)
+                    ) {
+                        AppDrawerContent(
+                            onCloseClick = { scope.launch { drawerState.close() } },
+                            onInfoClick = { scope.launch { drawerState.close() } },
+                            onContattiClick = { scope.launch { drawerState.close() } },
+                            onDisconnessioneClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    userViewModel.logout()
+                                    navController.navigate(Screen.Login.route) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
                             }
                         )
                     }
+                }
+            }
+        ) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Scaffold(
+                        topBar = {
+                            CommonTopBar(
+                                onMenuClick = { scope.launch { drawerState.open() } },
+                                onLogoClick = {
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(Screen.Home.route) { inclusive = true }
+                                    }
+                                }
+                            )
+                        },
+                        bottomBar = {
+                            BottomNavigationBar(
+                                selectedScreen = Screen.Catalog,
+                                navController = navController
+                            )
+                        },
+                        containerColor = PageBackground
+                    ) { paddingValues ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                        ) {
+                            SearchBarWithFilters(
+                                searchQuery = searchQuery,
+                                onSearchChange = { searchQuery = it },
+                                onFilterClick = { navController.navigate(Screen.Filters.route) }
+                            )
+
+                            if (isLoading) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = PrimaryColor)
+                                }
+                            } else {
+                                val filteredPerfumes = catalogViewModel.getFilteredPerfumes().filter {
+                                    searchQuery.isEmpty() ||
+                                            it.nome.contains(searchQuery, ignoreCase = true) ||
+                                            it.marca.contains(searchQuery, ignoreCase = true)
+                                }
+
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 5.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    contentPadding = PaddingValues(
+                                        start = 0.dp,
+                                        end = 0.dp,
+                                        top = 8.dp,
+                                        bottom = 16.dp
+                                    )
+                                ) {
+                                    items(filteredPerfumes) { perfume ->
+                                        val isFavorite = favoriteIds.contains(perfume.id)
+                                        PerfumeCardFigma(
+                                            perfume = perfume,
+                                            isFavorite = isFavorite,
+                                            onFavoriteClick = {
+                                                favoriteWasAdded = !isFavorite
+                                                userViewModel.toggleFavorite(perfume.id)
+                                                showFavoriteOverlay = true
+                                            },
+                                            onClick = {
+                                                navController.navigate("perfume_detail/${perfume.id}")
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    FavoriteOverlay(
+                        visible = showFavoriteOverlay,
+                        wasAdded = favoriteWasAdded,
+                        onDismiss = { showFavoriteOverlay = false }
+                    )
                 }
             }
         }
     }
 }
 
-// ✅ NUOVA Barra di ricerca con Filtri in alto a destra
+@Composable
+fun FavoriteOverlay(
+    visible: Boolean,
+    wasAdded: Boolean,
+    onDismiss: () -> Unit
+) {
+    LaunchedEffect(visible) {
+        if (visible) {
+            delay(1500)
+            onDismiss()
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.8f, animationSpec = tween(200)),
+        exit = fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.8f, animationSpec = tween(200))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier.padding(horizontal = 48.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F6FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(SecondaryColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (wasAdded) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = if (wasAdded) "Aggiunto ai preferiti!" else "Rimosso dai preferiti",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF2A282F)
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun SearchBarWithFilters(
     searchQuery: String,
@@ -155,13 +272,11 @@ fun SearchBarWithFilters(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        // Riga superiore: Titolo + Filtri
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Pulsante Filtri in alto a destra
             Button(
                 onClick = onFilterClick,
                 modifier = Modifier.height(36.dp),
@@ -188,12 +303,10 @@ fun SearchBarWithFilters(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Campo di ricerca sotto
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             placeholder = {
                 Text(
                     text = "cerca...",
@@ -242,7 +355,6 @@ fun PerfumeCardFigma(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column {
-                // Area Immagine
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -259,7 +371,6 @@ fun PerfumeCardFigma(
                         contentScale = ContentScale.Fit
                     )
 
-                    // Overlay "SOLO IN NEGOZIO" se non disponibile
                     if (!isAvailable) {
                         Box(
                             modifier = Modifier
@@ -278,13 +389,11 @@ fun PerfumeCardFigma(
                     }
                 }
 
-                // Info prodotto
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
-                    // Marca
                     Text(
                         text = perfume.marca.uppercase(),
                         fontSize = 13.sp,
@@ -295,7 +404,6 @@ fun PerfumeCardFigma(
                         lineHeight = 18.sp
                     )
 
-                    // Nome prodotto
                     Text(
                         text = perfume.nome,
                         fontSize = 16.sp,
@@ -309,7 +417,6 @@ fun PerfumeCardFigma(
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // Prezzo
                     Text(
                         text = String.format(Locale.ITALIAN, "%.2f €", perfume.prezzo),
                         fontSize = 22.sp,
@@ -320,7 +427,6 @@ fun PerfumeCardFigma(
                 }
             }
 
-            // Pulsante Preferiti (in alto a destra)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
