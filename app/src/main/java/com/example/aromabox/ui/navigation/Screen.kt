@@ -1,18 +1,40 @@
 package com.example.aromabox.ui.navigation
 
+/**
+ * Definizione delle route di navigazione dell'app
+ */
 sealed class Screen(val route: String) {
+    // Loading
     object Loading : Screen("loading")
+
+    // Auth
     object Login : Screen("login")
     object Register : Screen("register")
     object CompleteProfile : Screen("complete_profile")
+
+    // Main screens (Bottom Navigation)
+    object Home : Screen("home")
+    object Distributori : Screen("distributori")
+    object Storico : Screen("storico")
+    object Catalog : Screen("catalog")
+    object Profile : Screen("profile")
+
+    // Quiz
     object Quiz : Screen("quiz")
     object NotePreferite : Screen("note_preferite")
-    object Home : Screen("home")
-    object Catalog : Screen("catalog")
-    object Recommended : Screen("recommended")
-    object Recharge : Screen("recharge")
 
-    // Filtri
+    // Secondary screens
+    object Recharge : Screen("recharge")
+    object Recommended : Screen("recommended")
+
+    // Drawer screens
+    object Info : Screen("info")
+    object Contatti : Screen("contatti")
+
+    // About (click su logo)
+    object About : Screen("about")
+
+    // Filters
     object Filters : Screen("filters")
     object FilterSort : Screen("filter_sort")
     object FilterPrice : Screen("filter_price")
@@ -22,11 +44,8 @@ sealed class Screen(val route: String) {
     object FilterNotes : Screen("filter_notes")
     object FilterDistributor : Screen("filter_distributor")
 
-    object Distributori : Screen("distributori")
-    object Storico : Screen("storico")
-    object Profile : Screen("profile")
-
-    object PerfumeDetail : Screen("perfume_detail/{perfumeId}") {
-        fun createRoute(perfumeId: String) = "perfume_detail/$perfumeId"
+    // Detail screens
+    object PerfumeDetail : Screen("perfume/{perfumeId}") {
+        fun createRoute(perfumeId: String) = "perfume/$perfumeId"
     }
 }

@@ -108,7 +108,7 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
             HomeScreen(navController = navController, userViewModel = userViewModel)
         }
 
-        // ✅ Catalogo - NON resetta più il filtro automaticamente
+        // Catalogo
         composable(Screen.Catalog.route) {
             CatalogScreen(
                 navController = navController,
@@ -133,6 +133,34 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
                 userViewModel = userViewModel
             )
         }
+
+        // === SCHERMATE DRAWER ===
+
+        // Info (FAQ)
+        composable(Screen.Info.route) {
+            InfoScreen(
+                navController = navController,
+                userViewModel = userViewModel
+            )
+        }
+
+        // Contatti
+        composable(Screen.Contatti.route) {
+            ContattiScreen(
+                navController = navController,
+                userViewModel = userViewModel
+            )
+        }
+
+        // About (click su logo)
+        composable(Screen.About.route) {
+            AboutScreen(
+                navController = navController,
+                userViewModel = userViewModel
+            )
+        }
+
+        // === FINE SCHERMATE DRAWER ===
 
         // === FILTRI ===
         composable(Screen.Filters.route) {
@@ -163,7 +191,6 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
             FilterNotesScreen(navController = navController, catalogViewModel = catalogViewModel)
         }
 
-        // Filtro Distributore
         composable(Screen.FilterDistributor.route) {
             FilterDistributorScreen(
                 navController = navController,
@@ -173,7 +200,7 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
         }
         // === FINE FILTRI ===
 
-        // ✅ Distributori - ora passa anche userViewModel per il drawer
+        // Distributori
         composable(Screen.Distributori.route) {
             DistributoriScreen(
                 navController = navController,

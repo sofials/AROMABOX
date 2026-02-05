@@ -2,6 +2,7 @@ package com.example.aromabox.ui.screens
 
 import com.example.aromabox.ui.components.CommonTopBar
 import com.example.aromabox.ui.components.AppDrawerContent
+import com.example.aromabox.ui.components.LogoutConfirmationOverlay
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -62,109 +63,122 @@ fun HomeScreen(
     // Stato del drawer
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
+    // Stato per overlay conferma logout
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
     }
 
-    // ModalNavigationDrawer che si apre da DESTRA
-    // Per aprire da destra, invertiamo la direzione del layout
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            gesturesEnabled = false,
-            drawerContent = {
-                // Reimposta LTR per il contenuto del drawer
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    ModalDrawerSheet(
-                        drawerContainerColor = Color.Transparent,
-                        drawerContentColor = Color.Black,
-                        modifier = Modifier.width(300.dp)
-                    ) {
-                        AppDrawerContent(
-                            onCloseClick = {
-                                scope.launch { drawerState.close() }
-                            },
-                            onInfoClick = {
-                                scope.launch {
-                                    drawerState.close()
-                                    // TODO: Naviga a Info
-                                }
-                            },
-                            onContattiClick = {
-                                scope.launch {
-                                    drawerState.close()
-                                    // TODO: Naviga a Contatti
-                                }
-                            },
-                            onDisconnessioneClick = {
-                                scope.launch {
-                                    drawerState.close()
-                                    userViewModel.logout()
-                                    navController.navigate(Screen.Login.route) {
-                                        popUpTo(0) { inclusive = true }
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ModalNavigationDrawer che si apre da DESTRA
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = false,
+                drawerContent = {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        ModalDrawerSheet(
+                            drawerContainerColor = Color.Transparent,
+                            drawerContentColor = Color.Black,
+                            modifier = Modifier.width(300.dp)
+                        ) {
+                            AppDrawerContent(
+                                onCloseClick = {
+                                    scope.launch { drawerState.close() }
+                                },
+                                onInfoClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        navController.navigate(Screen.Info.route)
                                     }
+                                },
+                                onContattiClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        navController.navigate(Screen.Contatti.route)
+                                    }
+                                },
+                                onDisconnessioneClick = {
+                                    scope.launch { drawerState.close() }
+                                    showLogoutConfirmation = true
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
-            }
-        ) {
-            // Reimposta LTR per il contenuto principale
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Scaffold(
-                    topBar = {
-                        CommonTopBar(
-                            onMenuClick = {
-                                scope.launch { drawerState.open() }
-                            },
-                            onLogoClick = {
-                                // TODO: Azione al click sul logo
+            ) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Scaffold(
+                        topBar = {
+                            CommonTopBar(
+                                onMenuClick = {
+                                    scope.launch { drawerState.open() }
+                                },
+                                onLogoClick = {
+                                    // Naviga alla schermata About
+                                    navController.navigate(Screen.About.route)
+                                }
+                            )
+                        },
+                        bottomBar = {
+                            BottomNavigationBar(
+                                selectedScreen = Screen.Home,
+                                navController = navController
+                            )
+                        },
+                        containerColor = PageBackground
+                    ) { paddingValues ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                                .verticalScroll(rememberScrollState())
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Card Saldo
+                            SaldoCard(
+                                saldo = currentUser?.wallet ?: 0.0,
+                                onRicaricaClick = { navController.navigate(Screen.Recharge.route) }
+                            )
+
+                            // Card Collegati al Distributore
+                            ConnectDistributorCard()
+
+                            // Controlla se il quiz è completo
+                            val hasCompletedQuiz = currentUser?.profiloOlfattivo != null
+
+                            if (!hasCompletedQuiz) {
+                                QuizCard(
+                                    onClick = { navController.navigate(Screen.Quiz.route) }
+                                )
+                            } else {
+                                // Card Profumi Consigliati (dopo quiz completato)
+                                RecommendedCard(
+                                    onClick = { navController.navigate(Screen.Recommended.route) }
+                                )
                             }
-                        )
-                    },
-                    bottomBar = {
-                        BottomNavigationBar(
-                            selectedScreen = Screen.Home,
-                            navController = navController
-                        )
-                    },
-                    containerColor = PageBackground
-                ) { paddingValues ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Card Saldo
-                        SaldoCard(
-                            saldo = currentUser?.wallet ?: 0.0,
-                            onRicaricaClick = { navController.navigate(Screen.Recharge.route) }
-                        )
-
-                        // Card Collegati al Distributore
-                        ConnectDistributorCard()
-
-                        // Controlla se il quiz è completo
-                        val hasCompletedQuiz = currentUser?.profiloOlfattivo != null
-
-                        if (!hasCompletedQuiz) {
-                            QuizCard(
-                                onClick = { navController.navigate(Screen.Quiz.route) }
-                            )
-                        } else {
-                            // Card Profumi Consigliati (dopo quiz completato)
-                            RecommendedCard(
-                                onClick = { navController.navigate(Screen.Recommended.route) }
-                            )
                         }
                     }
                 }
             }
         }
+
+        // Overlay conferma logout
+        LogoutConfirmationOverlay(
+            visible = showLogoutConfirmation,
+            onConfirm = {
+                showLogoutConfirmation = false
+                userViewModel.logout()
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            },
+            onDismiss = {
+                showLogoutConfirmation = false
+            }
+        )
     }
 }
 
@@ -226,25 +240,21 @@ fun SaldoCard(
 
 /**
  * Card per collegarsi al distributore tramite toni DTMF
- *
- * CONFIGURAZIONE TIMING (modificare questi valori per sincronizzarsi col microfono):
  */
-private const val TONE_DURATION_MS = 150      // Durata di ogni singolo tono in millisecondi
-private const val DELAY_BETWEEN_TONES_MS = 100L  // Pausa tra un tono e l'altro in millisecondi
+private const val TONE_DURATION_MS = 150
+private const val DELAY_BETWEEN_TONES_MS = 100L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectDistributorCard() {
     val scope = rememberCoroutineScope()
 
-    // Stati
     var pinInput by remember { mutableStateOf("") }
     var isPlaying by remember { mutableStateOf(false) }
     var currentDigitIndex by remember { mutableStateOf(-1) }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = ConnectCardBg),
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
@@ -254,7 +264,6 @@ fun ConnectDistributorCard() {
                 .fillMaxWidth()
                 .padding(25.dp)
         ) {
-            // Header
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -278,11 +287,9 @@ fun ConnectDistributorCard() {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Campo PIN
             OutlinedTextField(
                 value = pinInput,
                 onValueChange = { newValue ->
-                    // Accetta solo numeri, max 6 cifre
                     if (newValue.all { it.isDigit() } && newValue.length <= 6) {
                         pinInput = newValue
                     }
@@ -310,7 +317,6 @@ fun ConnectDistributorCard() {
                 }
             )
 
-            // Visualizzazione PIN con highlight cifra corrente
             if (pinInput.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -346,7 +352,6 @@ fun ConnectDistributorCard() {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Bottone Play
             Button(
                 onClick = {
                     if (!isPlaying && pinInput.isNotEmpty()) {
@@ -364,7 +369,6 @@ fun ConnectDistributorCard() {
                                     }
                                 )
                             }
-                            // Reset dopo il completamento
                             currentDigitIndex = -1
                             isPlaying = false
                         }
@@ -413,7 +417,6 @@ fun ConnectDistributorCard() {
                 }
             }
 
-            // Indicatore di stato
             if (isPlaying) {
                 Spacer(modifier = Modifier.height(12.dp))
                 LinearProgressIndicator(
@@ -443,7 +446,6 @@ fun QuizCard(onClick: () -> Unit) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Header con testo
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -470,7 +472,6 @@ fun QuizCard(onClick: () -> Unit) {
                 )
             }
 
-            // Area immagine
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -479,7 +480,6 @@ fun QuizCard(onClick: () -> Unit) {
                     .padding(bottom = 35.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Cerchio sfondo con gradient
                 Box(
                     modifier = Modifier
                         .size(230.dp)
@@ -494,7 +494,6 @@ fun QuizCard(onClick: () -> Unit) {
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Immagine profumi
                     Image(
                         painter = painterResource(id = R.drawable.quiz_perfumes),
                         contentDescription = "Profumi",
@@ -545,7 +544,6 @@ fun RecommendedCard(onClick: () -> Unit) {
                 )
             }
 
-            // Icona/immagine
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -687,7 +685,6 @@ fun BottomNavigationBar(
             )
         }
 
-        // Bottone Home centrale flottante
         FloatingActionButton(
             onClick = {
                 navController.navigate(Screen.Home.route) {
