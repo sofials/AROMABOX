@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.viewmodels.CatalogViewModel
+import com.example.aromabox.ui.viewmodels.UserViewModel  // ✅ AGGIUNGI QUESTO IMPORT
 
 // Colori dal Figma
 private val PageBackground = Color(0xFFF2F2F2)
@@ -32,10 +33,14 @@ private val ActiveFilterColor = Color(0xFF8378BF)
 @Composable
 fun FilterScreen(
     navController: NavController,
-    catalogViewModel: CatalogViewModel
+    catalogViewModel: CatalogViewModel,
+    userViewModel: UserViewModel  // ✅ AGGIUNGI questo parametro
 ) {
-    val productCount = catalogViewModel.getFilteredPerfumes().size
+    val currentUser by userViewModel.currentUser.collectAsState()
+    val profiloOlfattivo = currentUser?.profiloOlfattivo
+    val productCount = catalogViewModel.getFilteredPerfumes(profiloOlfattivo).size
     val selectedDistributor by catalogViewModel.selectedDistributor.collectAsState()
+    val useQuizFilter by catalogViewModel.useQuizFilter.collectAsState()
 
     Scaffold(
         containerColor = PageBackground
@@ -57,7 +62,16 @@ fun FilterScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                // ✅ NUOVO: Filtro Distributore (primo nella lista)
+                // ✅ NUOVO: Filtro basato sul quiz (primo se profilo esiste)
+                if (profiloOlfattivo != null) {
+                    FilterOptionRow(
+                        title = "PROFILO OLFATTIVO",
+                        subtitle = if (useQuizFilter) "Attivo" else null,
+                        onClick = { navController.navigate(Screen.FilterQuiz.route) }
+                    )
+                }
+
+                // Filtro Distributore
                 FilterOptionRow(
                     title = "DISTRIBUTORE",
                     subtitle = selectedDistributor?.nome,
@@ -211,7 +225,6 @@ fun FilterOptionRow(
                         color = NeutralColor
                     )
 
-                    // ✅ Mostra il valore selezionato se presente
                     if (subtitle != null) {
                         Text(
                             text = subtitle,

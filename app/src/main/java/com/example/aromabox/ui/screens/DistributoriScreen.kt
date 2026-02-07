@@ -8,6 +8,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import android.graphics.Bitmap
@@ -102,11 +104,13 @@ fun DistributoriScreen(
                             onInfoClick = {
                                 scope.launch {
                                     drawerState.close()
+                                    navController.navigate(Screen.Info.route)
                                 }
                             },
                             onContattiClick = {
                                 scope.launch {
                                     drawerState.close()
+                                    navController.navigate(Screen.Contatti.route)
                                 }
                             },
                             onDisconnessioneClick = {
@@ -127,13 +131,9 @@ fun DistributoriScreen(
                 Scaffold(
                     topBar = {
                         CommonTopBar(
-                            onMenuClick = {
-                                scope.launch { drawerState.open() }
-                            },
+                            onMenuClick = { scope.launch { drawerState.open() } },
                             onLogoClick = {
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Home.route) { inclusive = true }
-                                }
+                                navController.navigate(Screen.About.route)
                             }
                         )
                     },
@@ -249,63 +249,95 @@ fun MapTilerMapView(
     distributors: List<Distributor>
 ) {
     val context = LocalContext.current
-    // Posizione default: Politecnico di Torino
     val defaultPosition = LatLng(45.0628, 7.6627)
 
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            MapView(ctx).apply {
-                getMapAsync { map ->
-                    map.setStyle(Style.Builder().fromUri(MAPTILER_STYLE_URL)) { style ->
-                        // Imposta posizione camera
-                        map.cameraPosition = CameraPosition.Builder()
+    // ✅ Stato per tenere riferimento alla mappa
+    var mapInstance by remember { mutableStateOf<org.maplibre.android.maps.MapLibreMap?>(null) }
+
+    Box(modifier = modifier) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                MapView(ctx).apply {
+                    getMapAsync { map ->
+                        mapInstance = map  // ✅ Salva il riferimento
+
+                        map.setStyle(Style.Builder().fromUri(MAPTILER_STYLE_URL)) { style ->
+                            // Imposta posizione camera
+                            map.cameraPosition = CameraPosition.Builder()
+                                .target(defaultPosition)
+                                .zoom(15.0)
+                                .build()
+
+                            // Crea icona custom con colore Primary #8378BF
+                            val iconFactory = org.maplibre.android.annotations.IconFactory.getInstance(ctx)
+                            val bitmap = BitmapFactory.decodeResource(ctx.resources, R.drawable.ic_marker_purple)
+                            val scaledBitmap = Bitmap.createScaledBitmap(bitmap, 80, 80, false)
+                            val customIcon = iconFactory.fromBitmap(scaledBitmap)
+
+                            // Aggiungi marker per ogni distributore attivo
+                            distributors.forEach { distributor ->
+                                @Suppress("DEPRECATION")
+                                map.addMarker(
+                                    org.maplibre.android.annotations.MarkerOptions()
+                                        .position(LatLng(distributor.latitudine, distributor.longitudine))
+                                        .title(distributor.nome)
+                                        .snippet(distributor.getIndirizzoCompleto())
+                                        .icon(customIcon)
+                                )
+                            }
+
+                            // Se non ci sono distributori, aggiungi comunque un marker sul Politecnico
+                            if (distributors.isEmpty()) {
+                                @Suppress("DEPRECATION")
+                                map.addMarker(
+                                    org.maplibre.android.annotations.MarkerOptions()
+                                        .position(defaultPosition)
+                                        .title("Politecnico di Torino")
+                                        .snippet("AromaBox disponibile qui!")
+                                        .icon(customIcon)
+                                )
+                            }
+                        }
+
+                        // Abilita controlli
+                        map.uiSettings.isZoomGesturesEnabled = true
+                        map.uiSettings.isScrollGesturesEnabled = true
+                        map.uiSettings.isRotateGesturesEnabled = false
+                        map.uiSettings.isTiltGesturesEnabled = false
+                    }
+                }
+            },
+            onRelease = { view ->
+                view.onDestroy()
+            }
+        )
+
+        // ✅ FAB per ricentrare la mappa sul Politecnico
+        FloatingActionButton(
+            onClick = {
+                mapInstance?.animateCamera(
+                    org.maplibre.android.camera.CameraUpdateFactory.newCameraPosition(
+                        CameraPosition.Builder()
                             .target(defaultPosition)
                             .zoom(15.0)
                             .build()
-
-                        // Crea icona custom con colore Primary #8378BF
-                        val iconFactory = org.maplibre.android.annotations.IconFactory.getInstance(ctx)
-                        val bitmap = BitmapFactory.decodeResource(ctx.resources, R.drawable.ic_marker_purple)
-                        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, 80, 80, false) // 80x80 pixel
-                        val customIcon = iconFactory.fromBitmap(scaledBitmap)
-                        // Aggiungi marker per ogni distributore attivo
-                        distributors.forEach { distributor ->
-                            @Suppress("DEPRECATION")
-                            map.addMarker(
-                                org.maplibre.android.annotations.MarkerOptions()
-                                    .position(LatLng(distributor.latitudine, distributor.longitudine))
-                                    .title(distributor.nome)
-                                    .snippet(distributor.getIndirizzoCompleto())
-                                    .icon(customIcon)
-                            )
-                        }
-
-                        // Se non ci sono distributori, aggiungi comunque un marker sul Politecnico
-                        if (distributors.isEmpty()) {
-                            @Suppress("DEPRECATION")
-                            map.addMarker(
-                                org.maplibre.android.annotations.MarkerOptions()
-                                    .position(defaultPosition)
-                                    .title("Politecnico di Torino")
-                                    .snippet("AromaBox disponibile qui!")
-                                    .icon(customIcon)
-                            )
-                        }
-                    }
-
-                    // Abilita controlli
-                    map.uiSettings.isZoomGesturesEnabled = true
-                    map.uiSettings.isScrollGesturesEnabled = true
-                    map.uiSettings.isRotateGesturesEnabled = false
-                    map.uiSettings.isTiltGesturesEnabled = false
-                }
-            }
-        },
-        onRelease = { view ->
-            view.onDestroy()
+                    ),
+                    1000  // Durata animazione in millisecondi
+                )
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = PrimaryColor,
+            contentColor = Color.White
+        ) {
+            Icon(
+                imageVector = Icons.Default.MyLocation,
+                contentDescription = "Centra mappa sul Politecnico"
+            )
         }
-    )
+    }
 }
 
 @Composable

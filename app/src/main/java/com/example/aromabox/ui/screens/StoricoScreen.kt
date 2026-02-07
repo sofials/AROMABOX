@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -86,8 +87,18 @@ fun StoricoScreen(
                     ) {
                         AppDrawerContent(
                             onCloseClick = { scope.launch { drawerState.close() } },
-                            onInfoClick = { scope.launch { drawerState.close() } },
-                            onContattiClick = { scope.launch { drawerState.close() } },
+                            onInfoClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    navController.navigate(Screen.Info.route)
+                                }
+                            },
+                            onContattiClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    navController.navigate(Screen.Contatti.route)
+                                }
+                            },
                             onDisconnessioneClick = {
                                 scope.launch {
                                     drawerState.close()
@@ -108,9 +119,7 @@ fun StoricoScreen(
                         CommonTopBar(
                             onMenuClick = { scope.launch { drawerState.open() } },
                             onLogoClick = {
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Home.route) { inclusive = true }
-                                }
+                                navController.navigate(Screen.About.route)
                             }
                         )
                     },
@@ -289,6 +298,7 @@ private fun OrderCard(
                 .fillMaxWidth()
                 .height(100.dp)
         ) {
+            // Immagine profumo
             Box(
                 modifier = Modifier
                     .width(100.dp)
@@ -309,6 +319,7 @@ private fun OrderCard(
                 )
             }
 
+            // Informazioni profumo
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -316,6 +327,7 @@ private fun OrderCard(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Brand e nome
                 Column {
                     Text(
                         text = order.perfumeBrand.uppercase(),
@@ -334,8 +346,33 @@ private fun OrderCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    // ✅ DISTRIBUTORE (questa parte mancava!)
+                    if (order.distributorName.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = order.distributorName,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
 
+                // Data e prezzo
                 Column {
                     Text(
                         text = order.getFormattedDate(),
@@ -354,6 +391,7 @@ private fun OrderCard(
             }
         }
 
+        // Sezione PIN (solo per ordini da ritirare)
         if (showPin && order.pin.isNotEmpty()) {
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 12.dp),

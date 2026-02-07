@@ -43,6 +43,8 @@ sealed class Screen(val route: String) {
     object FilterFamily : Screen("filter_family")
     object FilterNotes : Screen("filter_notes")
     object FilterDistributor : Screen("filter_distributor")
+    // In Screen.kt
+    object FilterQuiz : Screen("filter_quiz")
 
     // Detail screens
     object PerfumeDetail : Screen("perfume/{perfumeId}") {

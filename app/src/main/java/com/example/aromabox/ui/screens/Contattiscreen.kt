@@ -85,14 +85,15 @@ fun ContattiScreen(
                     Scaffold(
                         topBar = {
                             CommonTopBar(
-                                onMenuClick = {
-                                    scope.launch { drawerState.open() }
+                                onMenuClick = { scope.launch { drawerState.open() } },
+                                onLogoClick = {
+                                    navController.navigate(Screen.About.route)  // ✅ Come in HomeScreen
                                 }
                             )
                         },
                         bottomBar = {
                             BottomNavigationBar(
-                                selectedScreen = Screen.Home,
+                                selectedScreen = null,  // ✅ null perché è schermata secondaria
                                 navController = navController
                             )
                         },

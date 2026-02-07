@@ -571,7 +571,7 @@ fun RecommendedCard(onClick: () -> Unit) {
 
 @Composable
 fun BottomNavigationBar(
-    selectedScreen: Screen,
+    selectedScreen: Screen?,  // ✅ Nullable per schermate secondarie
     navController: NavController
 ) {
     Box {
@@ -592,9 +592,10 @@ fun BottomNavigationBar(
                 selected = selectedScreen == Screen.Distributori,
                 onClick = {
                     navController.navigate(Screen.Distributori.route) {
-                        popUpTo(Screen.Home.route) { saveState = true }
+                        popUpTo(Screen.Home.route) {
+                            inclusive = false
+                        }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -617,9 +618,10 @@ fun BottomNavigationBar(
                 selected = selectedScreen == Screen.Storico,
                 onClick = {
                     navController.navigate(Screen.Storico.route) {
-                        popUpTo(Screen.Home.route) { saveState = true }
+                        popUpTo(Screen.Home.route) {
+                            inclusive = false
+                        }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -645,9 +647,10 @@ fun BottomNavigationBar(
                 selected = selectedScreen == Screen.Catalog,
                 onClick = {
                     navController.navigate(Screen.Catalog.route) {
-                        popUpTo(Screen.Home.route) { saveState = true }
+                        popUpTo(Screen.Home.route) {
+                            inclusive = false
+                        }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -670,9 +673,10 @@ fun BottomNavigationBar(
                 selected = selectedScreen == Screen.Profile,
                 onClick = {
                     navController.navigate(Screen.Profile.route) {
-                        popUpTo(Screen.Home.route) { saveState = true }
+                        popUpTo(Screen.Home.route) {
+                            inclusive = false
+                        }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -688,7 +692,9 @@ fun BottomNavigationBar(
         FloatingActionButton(
             onClick = {
                 navController.navigate(Screen.Home.route) {
-                    popUpTo(Screen.Home.route) { inclusive = true }
+                    popUpTo(Screen.Home.route) {
+                        inclusive = true
+                    }
                     launchSingleTop = true
                 }
             },

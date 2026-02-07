@@ -91,8 +91,18 @@ fun CatalogScreen(
                     ) {
                         AppDrawerContent(
                             onCloseClick = { scope.launch { drawerState.close() } },
-                            onInfoClick = { scope.launch { drawerState.close() } },
-                            onContattiClick = { scope.launch { drawerState.close() } },
+                            onInfoClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    navController.navigate(Screen.Info.route)  // ✅ AGGIUNGI QUESTA RIGA
+                                }
+                            },
+                            onContattiClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    navController.navigate(Screen.Contatti.route)  // ✅ AGGIUNGI QUESTA RIGA
+                                }
+                            },
                             onDisconnessioneClick = {
                                 scope.launch {
                                     drawerState.close()
@@ -114,9 +124,7 @@ fun CatalogScreen(
                             CommonTopBar(
                                 onMenuClick = { scope.launch { drawerState.open() } },
                                 onLogoClick = {
-                                    navController.navigate(Screen.Home.route) {
-                                        popUpTo(Screen.Home.route) { inclusive = true }
-                                    }
+                                    navController.navigate(Screen.About.route)  // ✅ Come in HomeScreen
                                 }
                             )
                         },
@@ -147,7 +155,9 @@ fun CatalogScreen(
                                     CircularProgressIndicator(color = PrimaryColor)
                                 }
                             } else {
-                                val filteredPerfumes = catalogViewModel.getFilteredPerfumes().filter {
+                                val filteredPerfumes = catalogViewModel.getFilteredPerfumes(
+                                    currentUser?.profiloOlfattivo
+                                ).filter {
                                     searchQuery.isEmpty() ||
                                             it.nome.contains(searchQuery, ignoreCase = true) ||
                                             it.marca.contains(searchQuery, ignoreCase = true)
@@ -178,7 +188,7 @@ fun CatalogScreen(
                                                 showFavoriteOverlay = true
                                             },
                                             onClick = {
-                                                navController.navigate("perfume_detail/${perfume.id}")
+                                                navController.navigate(Screen.PerfumeDetail.createRoute(perfume.id))
                                             }
                                         )
                                     }

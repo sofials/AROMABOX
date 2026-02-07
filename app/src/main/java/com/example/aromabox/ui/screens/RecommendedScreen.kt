@@ -120,8 +120,9 @@ fun RecommendedScreen(
                     Scaffold(
                         topBar = {
                             CommonTopBar(
-                                onMenuClick = {
-                                    scope.launch { drawerState.open() }
+                                onMenuClick = { scope.launch { drawerState.open() } },
+                                onLogoClick = {
+                                    navController.navigate(Screen.About.route)  // ✅ Come in HomeScreen
                                 }
                             )
                         },

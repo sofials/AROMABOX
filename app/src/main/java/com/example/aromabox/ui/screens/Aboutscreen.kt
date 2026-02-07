@@ -6,7 +6,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -86,17 +85,15 @@ fun AboutScreen(
                     Scaffold(
                         topBar = {
                             CommonTopBar(
-                                onMenuClick = {
-                                    scope.launch { drawerState.open() }
-                                },
+                                onMenuClick = { scope.launch { drawerState.open() } },
                                 onLogoClick = {
-                                    // Già su About, non fare nulla
+                                    navController.navigate(Screen.About.route)  // ✅ Come in HomeScreen
                                 }
                             )
                         },
                         bottomBar = {
                             BottomNavigationBar(
-                                selectedScreen = Screen.Home,
+                                selectedScreen = null,  // ✅ null perché è schermata secondaria
                                 navController = navController
                             )
                         },
@@ -110,20 +107,35 @@ fun AboutScreen(
                         ) {
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            // Logo AromaBox grande con ombreggiatura
-                            Image(
-                                painter = painterResource(id = R.drawable.logo),
-                                contentDescription = "AromaBox Logo",
+                            // ✅ Logo AromaBox con ombreggiatura stile RegisterScreen
+                            Box(
                                 modifier = Modifier
                                     .width(200.dp)
-                                    .height(111.dp)
-                                    .shadow(
-                                        elevation = 4.dp,
-                                        spotColor = ShadowColor,
-                                        ambientColor = ShadowColor
-                                    ),
-                                contentScale = ContentScale.Fit
-                            )
+                                    .height(111.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // Ombra - logo leggermente spostato e semi-trasparente
+                                Image(
+                                    painter = painterResource(id = R.drawable.logo),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .width(180.dp)
+                                        .height(100.dp)
+                                        .offset(x = 2.dp, y = 2.dp),
+                                    alpha = 0.3f,
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.Black),
+                                    contentScale = ContentScale.Fit
+                                )
+                                // Logo principale
+                                Image(
+                                    painter = painterResource(id = R.drawable.logo),
+                                    contentDescription = "AromaBox Logo",
+                                    modifier = Modifier
+                                        .width(180.dp)
+                                        .height(100.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
 
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -145,16 +157,20 @@ fun AboutScreen(
                                 )
                             )
 
-                            // Immagine lineart che occupa TUTTO lo spazio disponibile
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // ✅ Immagine lineart che occupa PIÙ spazio in altezza
                             Image(
                                 painter = painterResource(id = R.drawable.lineart_profumi),
                                 contentDescription = "Illustrazione profumi",
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f) // Occupa tutto lo spazio rimanente
-                                    .padding(horizontal = 16.dp),
+                                    .weight(1f) // Occupa tutto lo spazio rimanente verticale
+                                    .padding(horizontal = 24.dp),
                                 contentScale = ContentScale.Fit
                             )
+
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             // Testo descrittivo con ombreggiatura
                             Text(
@@ -164,7 +180,7 @@ fun AboutScreen(
                                 color = TextSecondary,
                                 textAlign = TextAlign.Center,
                                 letterSpacing = 0.5.sp,
-                                lineHeight = 32.5.sp,
+                                lineHeight = 18.sp,
                                 modifier = Modifier.padding(horizontal = 40.dp),
                                 style = LocalTextStyle.current.copy(
                                     shadow = androidx.compose.ui.graphics.Shadow(

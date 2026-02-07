@@ -129,13 +129,13 @@ fun PerfumeDetailScreen(
                                 onInfoClick = {
                                     scope.launch {
                                         drawerState.close()
-                                        // TODO: Naviga a Info
+                                        navController.navigate(Screen.Info.route)  // ✅ AGGIUNGI QUESTA RIGA
                                     }
                                 },
                                 onContattiClick = {
                                     scope.launch {
                                         drawerState.close()
-                                        // TODO: Naviga a Contatti
+                                        navController.navigate(Screen.Contatti.route)  // ✅ AGGIUNGI QUESTA RIGA
                                     }
                                 },
                                 onDisconnessioneClick = {

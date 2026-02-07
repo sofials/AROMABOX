@@ -164,7 +164,11 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
 
         // === FILTRI ===
         composable(Screen.Filters.route) {
-            FilterScreen(navController = navController, catalogViewModel = catalogViewModel)
+            FilterScreen(
+                navController = navController,
+                catalogViewModel = catalogViewModel,
+                userViewModel = userViewModel  // ✅ AGGIUNTO
+            )
         }
 
         composable(Screen.FilterSort.route) {
@@ -196,6 +200,14 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
                 navController = navController,
                 catalogViewModel = catalogViewModel,
                 distributorViewModel = distributorViewModel
+            )
+        }
+
+        // ✅ AGGIUNGI QUESTA NUOVA ROUTE
+        composable(Screen.FilterQuiz.route) {
+            FilterQuizScreen(
+                navController = navController,
+                catalogViewModel = catalogViewModel
             )
         }
         // === FINE FILTRI ===

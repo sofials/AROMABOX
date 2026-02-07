@@ -57,9 +57,13 @@ class CatalogViewModel(
     private val _selectedNotes = MutableStateFlow<Set<String>>(emptySet())
     val selectedNotes: StateFlow<Set<String>> = _selectedNotes.asStateFlow()
 
-    // ✅ NUOVO: Filtro distributore
+    // Filtro distributore
     private val _selectedDistributor = MutableStateFlow<Distributor?>(null)
     val selectedDistributor: StateFlow<Distributor?> = _selectedDistributor.asStateFlow()
+
+    // ✅ NUOVO: Filtro basato sul quiz olfattivo
+    private val _useQuizFilter = MutableStateFlow(false)
+    val useQuizFilter: StateFlow<Boolean> = _useQuizFilter.asStateFlow()
 
     init {
         seedAndLoadPerfumes()
@@ -107,9 +111,13 @@ class CatalogViewModel(
         _selectedNotes.value = notes
     }
 
-    // ✅ NUOVO: Setter per filtro distributore
     fun setSelectedDistributor(distributor: Distributor?) {
         _selectedDistributor.value = distributor
+    }
+
+    // ✅ NUOVO: Setter per filtro quiz
+    fun setUseQuizFilter(enabled: Boolean) {
+        _useQuizFilter.value = enabled
     }
 
     fun clearFilters() {
@@ -122,6 +130,7 @@ class CatalogViewModel(
         _selectedFamilies.value = emptySet()
         _selectedNotes.value = emptySet()
         _selectedDistributor.value = null
+        _useQuizFilter.value = false  // ✅ Reset filtro quiz
     }
 
     // === GETTERS PER OPZIONI DISPONIBILI ===
@@ -147,10 +156,42 @@ class CatalogViewModel(
 
     // === FILTRO PRINCIPALE ===
 
-    fun getFilteredPerfumes(): List<Perfume> {
+    /**
+     * Filtra i profumi in base a tutti i criteri selezionati.
+     * Richiede il ProfiloOlfattivo se il filtro quiz è attivo.
+     */
+    fun getFilteredPerfumes(profiloOlfattivo: ProfiloOlfattivo? = null): List<Perfume> {
         var filtered = _perfumes.value
 
-        // ✅ Filtro distributore (mostra solo profumi disponibili in quel distributore)
+        // ✅ Filtro basato sul quiz olfattivo (ha priorità se attivo)
+        if (_useQuizFilter.value && profiloOlfattivo != null) {
+            val userNotes = (
+                    profiloOlfattivo.noteFloreali +
+                            profiloOlfattivo.noteFruttate +
+                            profiloOlfattivo.noteSpeziate +
+                            profiloOlfattivo.noteGourmand +
+                            profiloOlfattivo.noteLegnose
+                    ).map { it.lowercase() }
+
+            if (userNotes.isNotEmpty()) {
+                filtered = filtered.filter { perfume ->
+                    val perfumeNotes = (
+                            perfume.noteOlfattive.noteDiTesta +
+                                    perfume.noteOlfattive.noteDiCuore +
+                                    perfume.noteOlfattive.noteDiFondo
+                            ).map { it.lowercase() }
+
+                    // Il profumo deve avere almeno una nota compatibile con il profilo
+                    perfumeNotes.any { note ->
+                        userNotes.any { userNote ->
+                            note.contains(userNote) || userNote.contains(note)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Filtro distributore (mostra solo profumi disponibili in quel distributore)
         val distributor = _selectedDistributor.value
         if (distributor != null) {
             val availablePerfumeIds = distributor.inventario
@@ -226,7 +267,9 @@ class CatalogViewModel(
                 _selectedBrands.value.isNotEmpty() ||
                 _selectedGenders.value.isNotEmpty() ||
                 _selectedFamilies.value.isNotEmpty() ||
-                _selectedNotes.value.isNotEmpty()
+                _selectedNotes.value.isNotEmpty() ||
+                _selectedDistributor.value != null ||
+                _useQuizFilter.value  // ✅ Considera anche il filtro quiz
     }
 
     // === PROFUMI CONSIGLIATI ===

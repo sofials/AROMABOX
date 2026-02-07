@@ -100,8 +100,18 @@ fun ProfileScreen(
                     ) {
                         AppDrawerContent(
                             onCloseClick = { scope.launch { drawerState.close() } },
-                            onInfoClick = { scope.launch { drawerState.close() } },
-                            onContattiClick = { scope.launch { drawerState.close() } },
+                            onInfoClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    navController.navigate(Screen.Info.route)  // ✅ AGGIUNGI QUESTA RIGA
+                                }
+                            },
+                            onContattiClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    navController.navigate(Screen.Contatti.route)  // ✅ AGGIUNGI QUESTA RIGA
+                                }
+                            },
                             onDisconnessioneClick = {
                                 scope.launch {
                                     drawerState.close()
@@ -122,9 +132,7 @@ fun ProfileScreen(
                         CommonTopBar(
                             onMenuClick = { scope.launch { drawerState.open() } },
                             onLogoClick = {
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Home.route) { inclusive = true }
-                                }
+                                navController.navigate(Screen.About.route)  // ✅ Come in HomeScreen
                             }
                         )
                     },
@@ -346,7 +354,7 @@ fun ProfileScreen(
                                     PreferitiContentGrid(
                                         favoritePerfumes = favoritePerfumes,
                                         onPerfumeClick = { perfumeId ->
-                                            navController.navigate("perfume_detail/$perfumeId")
+                                            navController.navigate(Screen.PerfumeDetail.createRoute(perfumeId))
                                         },
                                         onRemoveFavorite = { perfumeId ->
                                             userViewModel.toggleFavorite(perfumeId)

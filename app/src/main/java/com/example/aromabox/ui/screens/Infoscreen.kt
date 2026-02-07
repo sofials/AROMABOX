@@ -128,7 +128,7 @@ fun InfoScreen(
                         },
                         bottomBar = {
                             BottomNavigationBar(
-                                selectedScreen = Screen.Home,
+                                selectedScreen = null,  // ✅ null perché è schermata secondaria
                                 navController = navController
                             )
                         },
