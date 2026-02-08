@@ -4,7 +4,6 @@ import com.example.aromabox.ui.components.CommonTopBar
 import com.example.aromabox.ui.components.AppDrawerContent
 import com.example.aromabox.ui.components.BadgeGridContent
 import com.example.aromabox.ui.components.BadgeDetailDialog
-import com.example.aromabox.ui.components.NewBadgeUnlockedSnackbar
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -73,7 +72,6 @@ fun ProfileScreen(
     val allPerfumes by catalogViewModel.perfumes.collectAsState()
 
     val userBadges by userViewModel.userBadges.collectAsState()
-    val newlyUnlockedBadge by userViewModel.newlyUnlockedBadge.collectAsState()
 
     var selectedTab by remember { mutableStateOf(ProfileTab.PROFILO_OLFATTIVO) }
     var selectedBadge by remember { mutableStateOf<Badge?>(null) }
@@ -141,14 +139,6 @@ fun ProfileScreen(
                             selectedScreen = Screen.Profile,
                             navController = navController
                         )
-                    },
-                    snackbarHost = {
-                        newlyUnlockedBadge?.let { badge ->
-                            NewBadgeUnlockedSnackbar(
-                                badge = badge,
-                                onDismiss = { userViewModel.clearNewlyUnlockedBadge() }
-                            )
-                        }
                     }
                 ) { paddingValues ->
 
@@ -661,7 +651,6 @@ fun ProfiloOlfattivoContent(
         }
     }
 }
-
 @Composable
 fun PieChartCompact(profilo: ProfiloOlfattivo) {
     val percentuali = listOf(
@@ -690,15 +679,34 @@ fun PieChartCompact(profilo: ProfiloOlfattivo) {
 
     val nomi = listOf("floreale", "fruttato", "speziato", "gourmand", "legnoso")
 
-    Box(
-        modifier = Modifier.size(220.dp),
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f),
         contentAlignment = Alignment.Center
     ) {
+        // ✅ Usa esplicitamente le proprietà dello scope
+        val width = this.maxWidth
+        val height = this.maxHeight
+
+        val availableSize = minOf(width, height, 280.dp)
+        val boxSize = availableSize * 0.85f
+
+        val canvasSize = boxSize * 0.545f
+        val labelRadius = boxSize * 0.409f
+
+        val fontSizeValue = (boxSize.value * 0.041f).coerceIn(8f, 11f)
+        val fontSize = fontSizeValue.sp
+
         val total = percentuali.sum()
 
         if (total <= 0f) {
-            Text(text = "Nessun dato disponibile", color = Color.Gray, fontSize = 12.sp)
-            return@Box
+            Text(
+                text = "Nessun dato disponibile",
+                color = Color.Gray,
+                fontSize = fontSize
+            )
+            return@BoxWithConstraints
         }
 
         val angles = mutableListOf<Float>()
@@ -710,8 +718,8 @@ fun PieChartCompact(profilo: ProfiloOlfattivo) {
             currentAngle += sweepAngle
         }
 
-        Canvas(modifier = Modifier.size(120.dp)) {
-            val strokeWidth = 28.dp.toPx()
+        Canvas(modifier = Modifier.size(canvasSize)) {
+            val strokeWidth = size.minDimension * 0.233f
             val radius = (size.minDimension - strokeWidth) / 2
             val topLeft = Offset(
                 (size.width - radius * 2) / 2,
@@ -737,8 +745,6 @@ fun PieChartCompact(profilo: ProfiloOlfattivo) {
             }
         }
 
-        val labelRadius = 90.dp
-
         percentuali.forEachIndexed { index, percentuale ->
             if (percentuale > 0f) {
                 val angleRad = Math.toRadians(angles[index].toDouble())
@@ -747,11 +753,11 @@ fun PieChartCompact(profilo: ProfiloOlfattivo) {
 
                 Text(
                     text = "${percentuale.toInt()}%\n${nomi[index]}",
-                    fontSize = 9.sp,
+                    fontSize = fontSize,
                     fontWeight = FontWeight.Medium,
                     color = coloriTesto[index],
                     textAlign = TextAlign.Center,
-                    lineHeight = 11.sp,
+                    lineHeight = fontSize * 1.22f,
                     modifier = Modifier.offset(x = xOffset, y = yOffset)
                 )
             }

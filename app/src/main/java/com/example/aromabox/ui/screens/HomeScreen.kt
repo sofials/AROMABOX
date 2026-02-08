@@ -41,6 +41,9 @@ import com.example.aromabox.utils.DTMFGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.google.accompanist.pager.ExperimentalPagerApi
+import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.rememberPagerState
 
 private val SaldoCardBg = Color(0xFF737083)
 private val SaldoTextSecondary = Color(0xFFFFFFFF).copy(alpha = 0.72f)
@@ -65,6 +68,9 @@ fun HomeScreen(
 
     // Stato per overlay conferma logout
     var showLogoutConfirmation by remember { mutableStateOf(false) }
+
+    // Stato per tutorial
+    var showTutorial by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         userViewModel.loadCurrentUser()
@@ -116,7 +122,6 @@ fun HomeScreen(
                                     scope.launch { drawerState.open() }
                                 },
                                 onLogoClick = {
-                                    // Naviga alla schermata About
                                     navController.navigate(Screen.About.route)
                                 }
                             )
@@ -143,8 +148,10 @@ fun HomeScreen(
                                 onRicaricaClick = { navController.navigate(Screen.Recharge.route) }
                             )
 
-                            // Card Collegati al Distributore
-                            ConnectDistributorCard()
+                            // Card Collegati al Distributore con bottone "?"
+                            ConnectDistributorCard(
+                                onHelpClick = { showTutorial = true }
+                            )
 
                             // Controlla se il quiz è completo
                             val hasCompletedQuiz = currentUser?.profiloOlfattivo != null
@@ -154,7 +161,6 @@ fun HomeScreen(
                                     onClick = { navController.navigate(Screen.Quiz.route) }
                                 )
                             } else {
-                                // Card Profumi Consigliati (dopo quiz completato)
                                 RecommendedCard(
                                     onClick = { navController.navigate(Screen.Recommended.route) }
                                 )
@@ -163,6 +169,13 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+
+        // Overlay tutorial
+        if (showTutorial) {
+            TutorialOverlay(
+                onDismiss = { showTutorial = false }
+            )
         }
 
         // Overlay conferma logout
@@ -181,6 +194,218 @@ fun HomeScreen(
         )
     }
 }
+
+/**
+ * Overlay Tutorial con card swipeable
+ */
+@OptIn(ExperimentalPagerApi::class)
+@Composable
+fun TutorialOverlay(
+    onDismiss: () -> Unit
+) {
+    val pagerState = rememberPagerState()
+
+    val tutorialPages = listOf(
+        TutorialPage(
+            title = "Benvenuto in AromaBox",
+            description = "Con AromaBox puoi acquistare una coccola profumata direttamente tramite cellulare, in maniera sicura e pratica",
+            // Sostituisci con le tue immagini vettoriali
+            imageRes1 = R.drawable.ic_phone, // immagine cellulare
+            imageRes2 = R.drawable.ic_perfume // immagine boccetta
+        ),
+        TutorialPage(
+            title = "Paga una vaporizzazione",
+            description = "Paga una vaporizzazione di profumo tramite il tuo borsellino virtuale oppure direttamente con carta di credito",
+            imageRes1 = R.drawable.ic_phone,
+            imageRes2 = R.drawable.ic_perfume
+        ),
+        TutorialPage(
+            title = "Borsellino virtuale",
+            description = "Puoi ricaricare il tuo borsellino virtuale tramite carta di credito",
+            imageRes1 = R.drawable.ic_phone,
+            imageRes2 = R.drawable.ic_perfume
+        ),
+        TutorialPage(
+            title = "Collegati al distributore",
+            description = "Puoi collegarti a un distributore abilitato scansionando il codice QR",
+            imageRes1 = R.drawable.ic_phone,
+            imageRes2 = R.drawable.ic_perfume
+        ),
+        TutorialPage(
+            title = "Scegli la tua fragranza",
+            description = "Scegli la fragranza che più ti piace e posizionati davanti al distributore",
+            imageRes1 = R.drawable.ic_phone,
+            imageRes2 = R.drawable.ic_perfume
+        ),
+        TutorialPage(
+            title = "Termina l'acquisto",
+            description = "Terminato l'acquisto chiudi il collegamento dall'applicazione: il tuo credito verrà aggiornato automaticamente",
+            imageRes1 = R.drawable.ic_phone,
+            imageRes2 = R.drawable.ic_perfume
+        )
+    )
+
+    // Overlay scuro
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.7f)),
+        contentAlignment = Alignment.Center
+    ) {
+        // Card Tutorial
+        Card(
+            modifier = Modifier
+                .width(348.dp)
+                .height(401.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Header viola con titolo e X
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(PrimaryColor)
+                        .padding(25.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = tutorialPages[pagerState.currentPage].title,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 25.sp,
+                        letterSpacing = 0.2.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Chiudi",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                // Pager per le card
+                HorizontalPager(
+                    count = tutorialPages.size,
+                    state = pagerState,
+                    modifier = Modifier.weight(1f)
+                ) { page ->
+                    TutorialPageContent(tutorialPages[page])
+                }
+
+                // Indicatori di pagina
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    tutorialPages.forEachIndexed { index, _ ->
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .size(
+                                    width = if (index == pagerState.currentPage) 15.dp else 4.5.dp,
+                                    height = 4.5.dp
+                                )
+                                .clip(RoundedCornerShape(if (index == pagerState.currentPage) 4.dp else 9999.dp))
+                                .background(
+                                    if (index == pagerState.currentPage) PrimaryColor
+                                    else Color(0xFFC4C4C4)
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Contenuto di una pagina del tutorial con due immagini vettoriali vicine
+ */
+/**
+ * Contenuto di una pagina del tutorial con due immagini vettoriali vicine
+ */
+/**
+ * Contenuto di una pagina del tutorial con due immagini vettoriali vicine
+ */
+@Composable
+fun TutorialPageContent(page: TutorialPage) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 25.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Due immagini vettoriali vicine
+        Row(
+            modifier = Modifier.height(145.dp), // Aumentato per contenere il telefono più grande
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Prima immagine (cellulare) - PIÙ GRANDE
+            Image(
+                painter = painterResource(id = page.imageRes1),
+                contentDescription = null,
+                modifier = Modifier
+                    .width(75.dp)   // Aumentato da 60dp
+                    .height(140.dp), // Aumentato da 115dp
+                contentScale = ContentScale.Fit
+            )
+
+            Spacer(modifier = Modifier.width(2.dp))  // ✅ Ridotto a 2dp per immagini molto vicine
+
+            // Seconda immagine (boccetta profumo) - più piccola
+            Image(
+                painter = painterResource(id = page.imageRes2),
+                contentDescription = null,
+                modifier = Modifier.size(69.dp), // Mantiene dimensione originale
+                contentScale = ContentScale.Fit
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Testo descrittivo
+        Text(
+            text = page.description,
+            textAlign = TextAlign.Center,
+            color = Color.Black,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal,
+            lineHeight = 23.sp,
+            letterSpacing = 0.5.sp,
+            modifier = Modifier.padding(horizontal = 10.dp)
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+/**
+ * Data class per le pagine del tutorial con due immagini
+ */
+data class TutorialPage(
+    val title: String,
+    val description: String,
+    val imageRes1: Int, // Prima immagine (cellulare)
+    val imageRes2: Int  // Seconda immagine (boccetta)
+)
 
 @Composable
 fun SaldoCard(
@@ -244,9 +469,14 @@ fun SaldoCard(
 private const val TONE_DURATION_MS = 150
 private const val DELAY_BETWEEN_TONES_MS = 100L
 
+/**
+ * Card per collegarsi al distributore tramite toni DTMF
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConnectDistributorCard() {
+fun ConnectDistributorCard(
+    onHelpClick: () -> Unit = {}
+) {
     val scope = rememberCoroutineScope()
 
     var pinInput by remember { mutableStateOf("") }
@@ -259,179 +489,208 @@ fun ConnectDistributorCard() {
         colors = CardDefaults.cardColors(containerColor = ConnectCardBg),
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(25.dp)
+        // Box principale per posizionamento assoluto del bottone "?"
+        Box(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+            // Bottone "?" in alto a destra (posizione assoluta rispetto alla Card)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 12.dp, end = 12.dp)
+                    .size(width = 48.dp, height = 45.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(SaldoCardBg), // Colore cambiato da AccentColor a SaldoCardBg
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Collegati",
-                    fontSize = 33.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.Black,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "al distributore automatico",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = Color.Black,
-                    letterSpacing = 0.5.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            OutlinedTextField(
-                value = pinInput,
-                onValueChange = { newValue ->
-                    if (newValue.all { it.isDigit() } && newValue.length <= 6) {
-                        pinInput = newValue
-                    }
-                },
-                label = { Text("Inserisci PIN") },
-                placeholder = { Text("123456") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                enabled = !isPlaying,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryColor,
-                    focusedLabelColor = PrimaryColor,
-                    cursorColor = PrimaryColor
-                ),
-                trailingIcon = {
-                    if (pinInput.isNotEmpty() && !isPlaying) {
-                        IconButton(onClick = { pinInput = "" }) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Cancella"
-                            )
-                        }
-                    }
-                }
-            )
-
-            if (pinInput.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                IconButton(
+                    onClick = onHelpClick,
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    pinInput.forEachIndexed { index, digit ->
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (index == currentDigitIndex) PrimaryColor
-                                    else SecondaryColor.copy(alpha = 0.3f)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = digit.toString(),
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (index == currentDigitIndex) Color.White else Color.Black
-                            )
-                        }
-                        if (index < pinInput.length - 1) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Outlined.HelpOutline,
+                        contentDescription = "Aiuto",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Button(
-                onClick = {
-                    if (!isPlaying && pinInput.isNotEmpty()) {
-                        isPlaying = true
-                        currentDigitIndex = -1
-
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                DTMFGenerator.playSequence(
-                                    sequence = pinInput,
-                                    toneDurationMs = TONE_DURATION_MS,
-                                    delayBetweenTonesMs = DELAY_BETWEEN_TONES_MS,
-                                    onDigitPlayed = { _, index ->
-                                        currentDigitIndex = index
-                                    }
-                                )
-                            }
-                            currentDigitIndex = -1
-                            isPlaying = false
-                        }
-                    }
-                },
+            // Contenuto principale con padding normale
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(40.dp),
-                enabled = pinInput.isNotEmpty() && !isPlaying,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent,
-                    disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
-                ),
-                contentPadding = PaddingValues(0.dp)
+                    .padding(25.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(SecondaryColor, Color(0xFF998DDB))
-                            ),
-                            shape = RoundedCornerShape(40.dp)
-                        ),
-                    contentAlignment = Alignment.Center
+                // Titolo centrato (ora è veramente centrato)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Text(
+                        text = "Collegati",
+                        fontSize = 33.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Black,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "al distributore automatico",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color.Black,
+                        letterSpacing = 0.5.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                OutlinedTextField(
+                    value = pinInput,
+                    onValueChange = { newValue ->
+                        if (newValue.all { it.isDigit() } && newValue.length <= 6) {
+                            pinInput = newValue
+                        }
+                    },
+                    label = { Text("Inserisci PIN") },
+                    placeholder = { Text("123456") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    enabled = !isPlaying,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryColor,
+                        focusedLabelColor = PrimaryColor,
+                        cursorColor = PrimaryColor
+                    ),
+                    trailingIcon = {
+                        if (pinInput.isNotEmpty() && !isPlaying) {
+                            IconButton(onClick = { pinInput = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Cancella"
+                                )
+                            }
+                        }
+                    }
+                )
+
+                if (pinInput.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Filled.VolumeUp else Icons.Filled.PlayArrow,
-                            contentDescription = if (isPlaying) "In riproduzione" else "Riproduci",
-                            tint = Color.Black,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = if (isPlaying) "Trasmissione..." else "Trasmetti PIN",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black
-                        )
+                        pinInput.forEachIndexed { index, digit ->
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (index == currentDigitIndex) PrimaryColor
+                                        else SecondaryColor.copy(alpha = 0.3f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = digit.toString(),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (index == currentDigitIndex) Color.White else Color.Black
+                                )
+                            }
+                            if (index < pinInput.length - 1) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                        }
                     }
                 }
-            }
 
-            if (isPlaying) {
-                Spacer(modifier = Modifier.height(12.dp))
-                LinearProgressIndicator(
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Button(
+                    onClick = {
+                        if (!isPlaying && pinInput.isNotEmpty()) {
+                            isPlaying = true
+                            currentDigitIndex = -1
+
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    DTMFGenerator.playSequence(
+                                        sequence = pinInput,
+                                        toneDurationMs = TONE_DURATION_MS,
+                                        delayBetweenTonesMs = DELAY_BETWEEN_TONES_MS,
+                                        onDigitPlayed = { _, index ->
+                                            currentDigitIndex = index
+                                        }
+                                    )
+                                }
+                                currentDigitIndex = -1
+                                isPlaying = false
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
-                    color = PrimaryColor,
-                    trackColor = SecondaryColor.copy(alpha = 0.3f)
-                )
+                        .height(56.dp),
+                    shape = RoundedCornerShape(40.dp),
+                    enabled = pinInput.isNotEmpty() && !isPlaying,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent,
+                        disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                    ),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(SecondaryColor, Color(0xFF998DDB))
+                                ),
+                                shape = RoundedCornerShape(40.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Filled.VolumeUp else Icons.Filled.PlayArrow,
+                                contentDescription = if (isPlaying) "In riproduzione" else "Riproduci",
+                                tint = Color.Black,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = if (isPlaying) "Trasmissione..." else "Trasmetti PIN",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+                    }
+                }
+
+                if (isPlaying) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = PrimaryColor,
+                        trackColor = SecondaryColor.copy(alpha = 0.3f)
+                    )
+                }
             }
         }
     }
 }
-
 @Composable
 fun QuizCard(onClick: () -> Unit) {
     Card(
@@ -571,7 +830,7 @@ fun RecommendedCard(onClick: () -> Unit) {
 
 @Composable
 fun BottomNavigationBar(
-    selectedScreen: Screen?,  // ✅ Nullable per schermate secondarie
+    selectedScreen: Screen?,
     navController: NavController
 ) {
     Box {

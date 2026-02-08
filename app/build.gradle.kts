@@ -80,4 +80,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     // MapLibre SDK
     implementation("org.maplibre.gl:android-sdk:11.0.0")
+    implementation("com.google.accompanist:accompanist-pager:0.32.0")
+    implementation("com.google.accompanist:accompanist-pager-indicators:0.32.0")
 }

@@ -46,23 +46,30 @@ data class FaqItem(
 val faqList = listOf(
     FaqItem(
         question = "Che cos'è AromaBox?",
-        answer = "AromaBox è un'app collegata a un omonimo distributore di profumi. Include un sistema di pagamento tramite smartphone sicuro, facile e conveniente. Con AromaBox ti basta scegliere una fragranza e questa verrà erogata dopo il pagamento. Scansiona il QR code, entro pochi secondi il tuo credito sarà trasferito e visualizzato sul distributore."
+        answer = "AromaBox è un’app collegata a una rete di distributori automatici di profumi.\n" +
+                "Ti permette di acquistare campioncini direttamente dal tuo smartphone in modo semplice, sicuro e veloce. Con AromaBox puoi scegliere la fragranza che preferisci, effettuare il pagamento tramite app e ritirare il prodotto quando vuoi presso un distributore abilitato."
     ),
     FaqItem(
         question = "Cosa devo fare?",
-        answer = "Una volta scaricata l'applicazione AromaBox, potrai erogare il tuo profumo preferito caricando il tuo borsellino elettronico. Bastano pochi secondi per goderti una coccola profumata!"
+        answer = "Dopo aver scaricato l’app AromaBox, puoi acquistare il tuo profumo preferito caricando il tuo borsellino virtuale.\n" +
+                "Una volta completato l’acquisto, riceverai un codice PIN personale che ti servirà per ritirare il prodotto."
     ),
     FaqItem(
         question = "Come avvengono gli acquisti?",
-        answer = "Gli acquisti avvengono tramite il credito presente sul tuo borsellino virtuale. Posizionati di fronte al distributore automatico abilitato, scansiona il QR ed effettua l'acquisto tramite app!"
+        answer = "Gli acquisti avvengono tramite il credito presente sul tuo borsellino virtuale.\n" +
+                "Puoi acquistare il prodotto ovunque ti trovi, anche senza essere davanti al distributore.\n" +
+                "Quando sei davanti a un distributore AromaBox, inserisci il PIN nell’app:\n" +
+                "al riconoscimento del codice, il tuo telefono emetterà un suono e il prodotto verrà erogato automaticamente."
     ),
     FaqItem(
         question = "Come posso ricaricare il borsellino?",
-        answer = "Puoi ricaricare il tuo borsellino elettronico come più preferisci, utilizzando Paypal, Satispay o inserendo direttamente la tua carta di credito. Una volta acquistato, il sistema ti addebiterà automaticamente l'importo effettivo dell'erogazione"
+        answer = "Puoi ricaricare il tuo borsellino virtuale utilizzando PayPal, Satispay o carta di credito.\n" +
+                "Il credito verrà aggiornato in tempo reale e potrai usarlo subito per i tuoi acquisti."
     ),
     FaqItem(
         question = "Quanto costa usare AromaBox?",
-        answer = "Pagare con AromaBox è totalmente GRATUITO. Ti saranno addebitati solo gli importi dei tuoi acquisti, senza alcuna commissione aggiuntiva."
+        answer = "Usare AromaBox è totalmente gratuito.\n" +
+                "Pagherai solo il costo dei prodotti acquistati, senza commissioni aggiuntive."
     )
 )
 
