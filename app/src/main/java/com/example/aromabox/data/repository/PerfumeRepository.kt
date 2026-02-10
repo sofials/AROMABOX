@@ -16,28 +16,40 @@ class PerfumeRepository {
     private val database = FirebaseDatabase.getInstance()
     private val perfumesRef = database.getReference("perfumes")
 
-    // ✅ Seed automatico al primo avvio
+
     suspend fun seedPerfumesIfNeeded() {
         try {
-            val snapshot = perfumesRef.get().await()
+            perfumesRef.removeValue().await()
+            println("🟡 Nodo perfumes cancellato")
 
-            // Se il database è vuoto, popola con i dati di seed
-            if (!snapshot.exists()) {
-                val seedPerfumes = PerfumeSeedData.getSeedPerfumes()
-
-                seedPerfumes.forEach { perfume ->
-                    perfumesRef.child(perfume.id).setValue(perfume).await()
-                }
-
-                println("✅ Database popolato con ${seedPerfumes.size} profumi")
-            } else {
-                println("ℹ️ Database già popolato")
+            val seedPerfumes = PerfumeSeedData.getSeedPerfumes()
+            seedPerfumes.forEach { perfume ->
+                val perfumeMap = mapOf(
+                    "id" to perfume.id,
+                    "nome" to perfume.nome,
+                    "marca" to perfume.marca,
+                    "prezzo" to perfume.prezzo,
+                    "categoria" to perfume.categoria,
+                    "genere" to perfume.genere,
+                    "disponibile" to perfume.disponibile,
+                    "slot" to perfume.slot,
+                    "noteOlfattive" to mapOf(
+                        "noteDiTesta" to perfume.noteOlfattive.noteDiTesta,
+                        "noteDiCuore" to perfume.noteOlfattive.noteDiCuore,
+                        "noteDiFondo" to perfume.noteOlfattive.noteDiFondo
+                    ),
+                    "imageUrl" to perfume.imageUrl
+                )
+                perfumesRef.child(perfume.id).setValue(perfumeMap).await()
+                println("🟡 Scritto: ${perfume.nome} - prezzo: ${perfume.prezzo}")
             }
+
+            println("✅ Seed completato con ${seedPerfumes.size} profumi")
         } catch (e: Exception) {
-            println("❌ Errore nel seed: ${e.message}")
+            println("❌ ERRORE SEED: ${e.message}")
+            e.printStackTrace()
         }
     }
-
     fun getAllPerfumes(): Flow<List<Perfume>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {

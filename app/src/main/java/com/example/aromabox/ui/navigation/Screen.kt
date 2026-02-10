@@ -14,6 +14,7 @@ sealed class Screen(val route: String) {
 
     // Main screens (Bottom Navigation)
     object Home : Screen("home")
+    object Offers : Screen("offers")
     object Distributori : Screen("distributori")
     object Storico : Screen("storico")
     object Catalog : Screen("catalog")

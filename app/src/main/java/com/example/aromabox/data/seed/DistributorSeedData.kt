@@ -27,27 +27,26 @@ object DistributorSeedData {
         // Distributore 2 - NON attivo (placeholder per il futuro)
         Distributor(
             id = "dist_002",
-            nome = "Galleria Aurora",
-            indirizzo = "Via delle Marze 23",
-            citta = "Borgo Luminato",
-            cap = "48012",
-            provincia = "RA",
-            latitudine = 44.4184,
-            longitudine = 12.2035,
+            nome = "Stazione Porta Nuova",
+            indirizzo = "Corso Vittorio Emanuele II, 58",
+            citta = "Torino",
+            cap = "10128",
+            provincia = "TO",
+            latitudine = 45.0612,
+            longitudine = 7.6780,
             attivo = false,  // Non cliccabile
             inventario = emptyMap()  // Nessun profumo (per ora)
         ),
-
-        // Distributore 3 - NON attivo (placeholder per il futuro)
+// Distributore 3 - NON attivo (placeholder per il futuro)
         Distributor(
             id = "dist_003",
-            nome = "Le Vele Center",
-            indirizzo = "Corso Azzurro 7",
-            citta = "Collevento",
-            cap = "00127",
-            provincia = "RM",
-            latitudine = 41.9028,
-            longitudine = 12.4964,
+            nome = "Pinalli Torino Area12",
+            indirizzo = "Strada Altessano, 141",
+            citta = "Torino",
+            cap = "10151",
+            provincia = "TO",
+            latitudine = 45.1096,
+            longitudine = 7.6414,
             attivo = false,  // Non cliccabile
             inventario = emptyMap()  // Nessun profumo (per ora)
         )

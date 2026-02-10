@@ -111,6 +111,7 @@ val noteSpeziate = listOf(
 
 val noteGourmand = listOf(
     NotaOlfattiva("Caramello", R.drawable.caramello),
+    NotaOlfattiva("Vaniglia", R.drawable.vaniglia),
     NotaOlfattiva("Crema", R.drawable.crema),
     NotaOlfattiva("Miele", R.drawable.miele),
     NotaOlfattiva("Biscotto", R.drawable.biscotto),

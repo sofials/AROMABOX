@@ -2,6 +2,7 @@ package com.example.aromabox.data.model
 
 import androidx.annotation.DrawableRes
 import com.example.aromabox.R
+import com.google.firebase.database.Exclude
 
 data class Perfume(
     val id: String = "",
@@ -15,6 +16,7 @@ data class Perfume(
     val noteOlfattive: NoteOlfattive = NoteOlfattive(),
     val imageUrl: String = ""
 ) {
+    @Exclude
     @DrawableRes
     fun getImageResource(): Int {
         return when (imageUrl.lowercase().trim()) {

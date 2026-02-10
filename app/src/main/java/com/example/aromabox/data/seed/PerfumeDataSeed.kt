@@ -58,7 +58,7 @@ object PerfumeSeedData {
             id = "perfume_4",
             nome = "Miss Dior",
             marca = "Dior",
-            prezzo = 1.50,
+            prezzo = 2.50,
             categoria = "floreale",
             genere = "Donna",  // ✅
             disponibile = true,
@@ -170,7 +170,7 @@ object PerfumeSeedData {
             id = "perfume_11",
             nome = "Chloé",
             marca = "Chloé",
-            prezzo = 1.50,
+            prezzo = 2.00,
             categoria = "floreale",
             genere = "Donna",  // ✅
             disponibile = true,
@@ -186,7 +186,7 @@ object PerfumeSeedData {
             id = "perfume_12",
             nome = "Lime Basil & Mandarin",
             marca = "Jo Malone London",
-            prezzo = 3.50,
+            prezzo = 2.00,
             categoria = "fruttato",
             genere = "Unisex",  // ✅
             disponibile = true,
@@ -202,7 +202,7 @@ object PerfumeSeedData {
             id = "perfume_13",
             nome = "Bleu de Chanel",
             marca = "Chanel",
-            prezzo = 2.00,
+            prezzo = 2.50,
             categoria = "legnoso",
             genere = "Uomo",  // ✅
             disponibile = true,

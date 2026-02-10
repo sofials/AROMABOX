@@ -3,6 +3,7 @@ package com.example.aromabox.ui.screens
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,8 +21,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
@@ -48,12 +51,12 @@ private val CheckIconColor = Color(0xFF8378BF)
 // Opzioni importo
 val rechargeAmounts = listOf(5.0, 10.0, 20.0)
 
-// Opzioni metodo di pagamento
-enum class PaymentMethod(val displayName: String) {
-    PAYPAL("PayPal"),
-    GOOGLE_PAY("Google Pay"),
-    APPLE_PAY("Apple Pay"),
-    CARD("Carta")
+// Opzioni metodo di pagamento con riferimento drawable
+enum class PaymentMethod(val displayName: String, val iconRes: String) {
+    PAYPAL("PayPal", "ic_paypal"),
+    GOOGLE_PAY("Google Pay", "ic_google_pay"),
+    APPLE_PAY("Apple Pay", "ic_apple_pay"),
+    CARD("Carta", "ic_card")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,13 +97,13 @@ fun RechargeScreen(
                                 onInfoClick = {
                                     scope.launch {
                                         drawerState.close()
-                                        // TODO: Naviga a Info
+                                        navController.navigate(Screen.Info.route)
                                     }
                                 },
                                 onContattiClick = {
                                     scope.launch {
                                         drawerState.close()
-                                        // TODO: Naviga a Contatti
+                                        navController.navigate(Screen.Contatti.route)
                                     }
                                 },
                                 onDisconnessioneClick = {
@@ -123,7 +126,7 @@ fun RechargeScreen(
                             CommonTopBar(
                                 onMenuClick = { scope.launch { drawerState.open() } },
                                 onLogoClick = {
-                                    navController.navigate(Screen.About.route)  // ✅ Come in HomeScreen
+                                    navController.navigate(Screen.About.route)
                                 }
                             )
                         },
@@ -157,7 +160,12 @@ fun RechargeScreen(
                             // Card superiore (grigia) - Saldo + Selezione importo
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+                                shape = RoundedCornerShape(
+                                    topStart = 20.dp,
+                                    topEnd = 20.dp,
+                                    bottomStart = 0.dp,
+                                    bottomEnd = 0.dp
+                                ),
                                 colors = CardDefaults.cardColors(containerColor = CardHeaderBg),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
                             ) {
@@ -179,7 +187,11 @@ fun RechargeScreen(
                                     Spacer(modifier = Modifier.height(4.dp))
 
                                     Text(
-                                        text = String.format(Locale.ITALIAN, "%.2f €", currentUser?.wallet ?: 0.0),
+                                        text = String.format(
+                                            Locale.ITALIAN,
+                                            "%.2f €",
+                                            currentUser?.wallet ?: 0.0
+                                        ),
                                         fontSize = 33.sp,
                                         fontWeight = FontWeight.Black,
                                         color = Color.White
@@ -216,7 +228,12 @@ fun RechargeScreen(
                             // Card inferiore (bianca) - Metodi di pagamento
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
+                                shape = RoundedCornerShape(
+                                    topStart = 0.dp,
+                                    topEnd = 0.dp,
+                                    bottomStart = 20.dp,
+                                    bottomEnd = 20.dp
+                                ),
                                 colors = CardDefaults.cardColors(containerColor = CardBg),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
                             ) {
@@ -249,7 +266,9 @@ fun RechargeScreen(
                                         PaymentMethodButton(
                                             method = PaymentMethod.GOOGLE_PAY,
                                             isSelected = selectedPayment == PaymentMethod.GOOGLE_PAY,
-                                            onClick = { selectedPayment = PaymentMethod.GOOGLE_PAY },
+                                            onClick = {
+                                                selectedPayment = PaymentMethod.GOOGLE_PAY
+                                            },
                                             modifier = Modifier.weight(1f)
                                         )
                                     }
@@ -289,7 +308,11 @@ fun RechargeScreen(
                                                     },
                                                     onError = { error ->
                                                         isProcessing = false
-                                                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(
+                                                            context,
+                                                            error,
+                                                            Toast.LENGTH_SHORT
+                                                        ).show()
                                                     }
                                                 )
                                             } else {
@@ -308,7 +331,9 @@ fun RechargeScreen(
                                             containerColor = PrimaryColor,
                                             disabledContainerColor = PrimaryColor.copy(alpha = 0.5f)
                                         ),
-                                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                                        elevation = ButtonDefaults.buttonElevation(
+                                            defaultElevation = 4.dp
+                                        ),
                                         enabled = !isProcessing
                                     ) {
                                         if (isProcessing) {
@@ -385,6 +410,11 @@ fun PaymentMethodButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val iconResId = context.resources.getIdentifier(
+        method.iconRes, "drawable", context.packageName
+    )
+
     Box(
         modifier = modifier
             .height(59.dp)
@@ -400,12 +430,22 @@ fun PaymentMethodButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = method.displayName,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (isSelected) PrimaryColor else Color.Gray
-        )
+        if (iconResId != 0) {
+            Image(
+                painter = painterResource(id = iconResId),
+                contentDescription = method.displayName,
+                modifier = Modifier.height(30.dp),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            // Fallback testo se icona non ancora aggiunta
+            Text(
+                text = method.displayName,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (isSelected) PrimaryColor else Color.Gray
+            )
+        }
     }
 }
 
@@ -436,7 +476,7 @@ fun RechargeSuccessOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Cerchio esterno con bordo tratteggiato (simulato)
+                // Cerchio esterno
                 Box(
                     modifier = Modifier
                         .size(100.dp)

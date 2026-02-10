@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import com.example.aromabox.ui.screens.OffersScreen
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -161,6 +162,12 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
 
             composable(Screen.About.route) {
                 AboutScreen(
+                    navController = navController,
+                    userViewModel = userViewModel
+                )
+            }
+            composable(Screen.Offers.route) {
+                OffersScreen(
                     navController = navController,
                     userViewModel = userViewModel
                 )
