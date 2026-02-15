@@ -276,31 +276,25 @@ class UserViewModel(
             }
         }
     }
-
-    /**
-     * Dopo la trasmissione DTMF, cerca l'ordine associato al PIN
-     * e setta erogazione = true sul nodo ESP32 per il collega.
-     * Il collega con l'ESP32 osserva erogazioni_esp32/{distributorId}/{perfumeId}/erogazione
-     * e quando vede true avvia l'erogazione fisica.
-     */
     fun notifyErogazioneEsp32(pin: String) {
         val uid = _currentUser.value?.uid ?: return
 
         viewModelScope.launch {
             try {
-                // 1. Cerca l'ordine corrispondente al PIN negli ordini dell'utente
                 val order = FirebaseManager.findOrderByPin(uid, pin)
 
                 if (order != null) {
-                    // 2. Setta erogazione = true per il profumo giusto sul distributore
-                    val success = FirebaseManager.setErogazioneEsp32(
+                    // 1. Setta erogazione = true per l'ESP32
+                    FirebaseManager.setErogazioneEsp32(
                         distributorId = order.distributorId,
                         perfumeId = order.perfumeId,
                         erogazione = true
                     )
-                    if (success) {
-                        Log.d("UserViewModel", "Erogazione ESP32 attivata per ${order.perfumeId} su ${order.distributorId}")
-                    }
+
+                    // 2. Segna l'ordine come ritirato
+                    repository.markOrderAsRitirato(uid, order.orderId)
+
+                    Log.d("UserViewModel", "Erogazione ESP32 attivata e ordine ritirato: ${order.perfumeId}")
                 } else {
                     Log.w("UserViewModel", "Nessun ordine trovato per PIN: $pin")
                 }
