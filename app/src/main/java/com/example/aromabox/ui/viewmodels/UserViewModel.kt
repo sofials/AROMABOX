@@ -1,7 +1,9 @@
 package com.example.aromabox.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.aromabox.data.firebase.FirebaseManager
 import com.example.aromabox.data.model.Badge
 import com.example.aromabox.data.model.BadgeDefinitions
 import com.example.aromabox.data.model.BadgeRequirementType
@@ -271,6 +273,39 @@ class UserViewModel(
                 repository.updateConnectionStatus(userId, isConnected)
             } catch (e: Exception) {
                 _errorMessage.value = "Errore nell'aggiornare lo stato: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Dopo la trasmissione DTMF, cerca l'ordine associato al PIN
+     * e setta erogazione = true sul nodo ESP32 per il collega.
+     * Il collega con l'ESP32 osserva erogazioni_esp32/{distributorId}/{perfumeId}/erogazione
+     * e quando vede true avvia l'erogazione fisica.
+     */
+    fun notifyErogazioneEsp32(pin: String) {
+        val uid = _currentUser.value?.uid ?: return
+
+        viewModelScope.launch {
+            try {
+                // 1. Cerca l'ordine corrispondente al PIN negli ordini dell'utente
+                val order = FirebaseManager.findOrderByPin(uid, pin)
+
+                if (order != null) {
+                    // 2. Setta erogazione = true per il profumo giusto sul distributore
+                    val success = FirebaseManager.setErogazioneEsp32(
+                        distributorId = order.distributorId,
+                        perfumeId = order.perfumeId,
+                        erogazione = true
+                    )
+                    if (success) {
+                        Log.d("UserViewModel", "Erogazione ESP32 attivata per ${order.perfumeId} su ${order.distributorId}")
+                    }
+                } else {
+                    Log.w("UserViewModel", "Nessun ordine trovato per PIN: $pin")
+                }
+            } catch (e: Exception) {
+                Log.e("UserViewModel", "Errore notifica ESP32", e)
             }
         }
     }

@@ -26,6 +26,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.aromabox.data.firebase.FirebaseManager
 import com.example.aromabox.ui.components.NewBadgeUnlockedSnackbar
 import com.example.aromabox.ui.navigation.Screen
 import com.example.aromabox.ui.screens.*
@@ -70,6 +71,11 @@ fun AromaBoxApp(userViewModel: UserViewModel) {
 
     var isInitialized by remember { mutableStateOf(false) }
     var startDestination by remember { mutableStateOf<String?>(null) }
+
+    // ✅ Seed nodo ESP32 per il collega
+    LaunchedEffect(Unit) {
+        FirebaseManager.seedErogazioniEsp32()
+    }
 
     LaunchedEffect(isLoading) {
         if (!isLoading && !isInitialized) {
