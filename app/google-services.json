@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "89037242874-t5etsrkvhl5db03420ioeurdfl1t8afs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.aromabox",
+            "certificate_hash": "1bc41ea9c2ec767134371d81ca01ed871c243a31"
+          }
+        },
+        {
           "client_id": "89037242874-1bm7bblrnhnv8e3031hcmrl0vrvifti6.apps.googleusercontent.com",
           "client_type": 3
         }
