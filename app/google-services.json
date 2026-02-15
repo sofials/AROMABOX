@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "89037242874",
+    "firebase_url": "https://aromabox-c2c52-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "aromabox-c2c52",
+    "storage_bucket": "aromabox-c2c52.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:89037242874:android:c7c0393573d2f10c2b2443",
+        "android_client_info": {
+          "package_name": "com.example.aromabox"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "89037242874-b3k760u2p7260965e75ikegnklj8mudl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.aromabox",
+            "certificate_hash": "03fa7601abb076cd23eaafcb3bd1e808b40f481a"
+          }
+        },
+        {
+          "client_id": "89037242874-1bm7bblrnhnv8e3031hcmrl0vrvifti6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5UKw_if8ebtIfQTeSllThi4uSidXobuc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "89037242874-1bm7bblrnhnv8e3031hcmrl0vrvifti6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
