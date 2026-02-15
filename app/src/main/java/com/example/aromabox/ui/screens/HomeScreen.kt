@@ -149,9 +149,12 @@ fun HomeScreen(
                                 onRicaricaClick = { navController.navigate(Screen.Recharge.route) }
                             )
 
-                            // Card Collegati al Distributore con bottone "?"
+                            // Card Collegati al Distributore con bottone "?" e callback ESP32
                             ConnectDistributorCard(
-                                onHelpClick = { showTutorial = true }
+                                onHelpClick = { showTutorial = true },
+                                onPinTransmitted = { pin ->
+                                    userViewModel.notifyErogazioneEsp32(pin)
+                                }
                             )
 
                             // Controlla se il quiz è completo
@@ -213,9 +216,8 @@ fun TutorialOverlay(
         TutorialPage(
             title = "Benvenuto in AromaBox",
             description = "Con AromaBox puoi acquistare una coccola profumata direttamente tramite cellulare, in maniera sicura e pratica",
-            // Sostituisci con le tue immagini vettoriali
-            imageRes1 = R.drawable.ic_phone, // immagine cellulare
-            imageRes2 = R.drawable.ic_perfume // immagine boccetta
+            imageRes1 = R.drawable.ic_phone,
+            imageRes2 = R.drawable.ic_perfume
         ),
         TutorialPage(
             title = "Paga una vaporizzazione",
@@ -340,12 +342,6 @@ fun TutorialOverlay(
 /**
  * Contenuto di una pagina del tutorial con due immagini vettoriali vicine
  */
-/**
- * Contenuto di una pagina del tutorial con due immagini vettoriali vicine
- */
-/**
- * Contenuto di una pagina del tutorial con due immagini vettoriali vicine
- */
 @Composable
 fun TutorialPageContent(page: TutorialPage) {
     Column(
@@ -359,7 +355,7 @@ fun TutorialPageContent(page: TutorialPage) {
 
         // Due immagini vettoriali vicine
         Row(
-            modifier = Modifier.height(145.dp), // Aumentato per contenere il telefono più grande
+            modifier = Modifier.height(145.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -368,18 +364,18 @@ fun TutorialPageContent(page: TutorialPage) {
                 painter = painterResource(id = page.imageRes1),
                 contentDescription = null,
                 modifier = Modifier
-                    .width(75.dp)   // Aumentato da 60dp
-                    .height(140.dp), // Aumentato da 115dp
+                    .width(75.dp)
+                    .height(140.dp),
                 contentScale = ContentScale.Fit
             )
 
-            Spacer(modifier = Modifier.width(2.dp))  // ✅ Ridotto a 2dp per immagini molto vicine
+            Spacer(modifier = Modifier.width(2.dp))
 
             // Seconda immagine (boccetta profumo) - più piccola
             Image(
                 painter = painterResource(id = page.imageRes2),
                 contentDescription = null,
-                modifier = Modifier.size(69.dp), // Mantiene dimensione originale
+                modifier = Modifier.size(69.dp),
                 contentScale = ContentScale.Fit
             )
         }
@@ -401,14 +397,15 @@ fun TutorialPageContent(page: TutorialPage) {
         Spacer(modifier = Modifier.height(20.dp))
     }
 }
+
 /**
  * Data class per le pagine del tutorial con due immagini
  */
 data class TutorialPage(
     val title: String,
     val description: String,
-    val imageRes1: Int, // Prima immagine (cellulare)
-    val imageRes2: Int  // Seconda immagine (boccetta)
+    val imageRes1: Int,
+    val imageRes2: Int
 )
 
 @Composable
@@ -474,12 +471,14 @@ private const val TONE_DURATION_MS = 150
 private const val DELAY_BETWEEN_TONES_MS = 100L
 
 /**
- * Card per collegarsi al distributore tramite toni DTMF
+ * Card per collegarsi al distributore tramite toni DTMF.
+ * Dopo la trasmissione, chiama onPinTransmitted per notificare il nodo ESP32.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectDistributorCard(
-    onHelpClick: () -> Unit = {}
+    onHelpClick: () -> Unit = {},
+    onPinTransmitted: (String) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
 
@@ -504,7 +503,7 @@ fun ConnectDistributorCard(
                     .padding(top = 12.dp, end = 12.dp)
                     .size(width = 48.dp, height = 45.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(SaldoCardBg), // Colore cambiato da AccentColor a SaldoCardBg
+                    .background(SaldoCardBg),
                 contentAlignment = Alignment.Center
             ) {
                 IconButton(
@@ -526,7 +525,7 @@ fun ConnectDistributorCard(
                     .fillMaxWidth()
                     .padding(25.dp)
             ) {
-                // Titolo centrato (ora è veramente centrato)
+                // Titolo centrato
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -634,6 +633,9 @@ fun ConnectDistributorCard(
                                 }
                                 currentDigitIndex = -1
                                 isPlaying = false
+
+                                // Notifica ESP32 dopo trasmissione DTMF completata
+                                onPinTransmitted(pinInput)
                             }
                         }
                     },
@@ -695,6 +697,7 @@ fun ConnectDistributorCard(
         }
     }
 }
+
 @Composable
 fun QuizCard(onClick: () -> Unit) {
     Card(

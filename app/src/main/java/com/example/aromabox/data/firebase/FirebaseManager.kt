@@ -402,4 +402,81 @@ object FirebaseManager {
             emptyList()
         }
     }
+
+    // ========== EROGAZIONI ESP32 ==========
+
+    private val esp32Ref = database.child("erogazioni_esp32")
+
+    /**
+     * Setta erogazione = true/false per un profumo su un distributore.
+     * L'ESP32 del collega osserva questo valore in tempo reale.
+     */
+    suspend fun setErogazioneEsp32(
+        distributorId: String,
+        perfumeId: String,
+        erogazione: Boolean
+    ): Boolean {
+        return try {
+            esp32Ref
+                .child(distributorId)
+                .child(perfumeId)
+                .child("erogazione")
+                .setValue(erogazione)
+                .await()
+            Log.d(TAG, "ESP32 erogazione: $distributorId/$perfumeId = $erogazione")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting ESP32 erogazione", e)
+            false
+        }
+    }
+
+    /**
+     * Seed iniziale del nodo erogazioni_esp32 per dist_001.
+     * Crea la struttura con i due profumi e erogazione = false.
+     * Usa Map esplicite per evitare problemi di serializzazione Firebase.
+     */
+    suspend fun seedErogazioniEsp32(): Boolean {
+        return try {
+            val snapshot = esp32Ref.child("dist_001").get().await()
+            if (!snapshot.exists()) {
+                val data = mapOf(
+                    "perfume_1" to mapOf(
+                        "nome" to "N°5 - Chanel",
+                        "erogazione" to false
+                    ),
+                    "perfume_2" to mapOf(
+                        "nome" to "Sauvage - Dior",
+                        "erogazione" to false
+                    )
+                )
+                esp32Ref.child("dist_001").setValue(data).await()
+                Log.d(TAG, "ESP32 erogazioni node seeded")
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error seeding ESP32 erogazioni", e)
+            false
+        }
+    }
+
+    /**
+     * Cerca un ordine dell'utente tramite PIN.
+     * Cerca nel nodo users/{uid}/ordini filtrando per campo "pin".
+     */
+    suspend fun findOrderByPin(uid: String, pin: String): Order? {
+        return try {
+            val snapshot = usersRef
+                .child(uid)
+                .child("ordini")
+                .orderByChild("pin")
+                .equalTo(pin)
+                .get()
+                .await()
+            snapshot.children.firstOrNull()?.getValue(Order::class.java)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error finding order by PIN", e)
+            null
+        }
+    }
 }
